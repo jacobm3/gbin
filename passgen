@@ -13,4 +13,4 @@ fi
 
 
 # Generate the password
-echo "$(xkcdpass -n 3) $(shuf -i 100-999 -n 1)" 
+echo "$(xkcdpass -n 3) $(shuf -i 100-999 -n 1)"  | sed 's/ /-/g'
