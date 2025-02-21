@@ -133,6 +133,7 @@ alias tm=tmsu
 alias ts='tailscale'
 alias v='vim'
 alias venv='python3 -m venv '
+alias y='yara'
 va () { . $1/bin/activate; }
 
 
