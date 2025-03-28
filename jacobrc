@@ -170,6 +170,27 @@ gb2b () {
     echo ${bytes%.*}
 }
 
+# script session logging wrapper
+logsess() {
+  # Usage: logsess [description]
+  # If a description is provided, it's prepended in the filename
+  # followed by an ISO-like timestamp.
+  
+  local PURPOSE="$1"
+  local TIMESTAMP
+  TIMESTAMP=$(date +"%Y-%m-%dT%H%M%S")
+
+  # If PURPOSE is empty, default to 'session'
+  if [[ -z "$PURPOSE" ]]; then
+    PURPOSE="session"
+  fi
+
+  # Combine them into the final filename
+  local FILENAME="${PURPOSE}_${TIMESTAMP}.log"
+
+  # Start the session
+  script "$FILENAME"
+}
 
 
 
