@@ -3,6 +3,8 @@ while IFS= read -r -d $'\0' f; do
     dir=$(dirname "$f")
     base=$(basename "$f")
     newbase=$(echo "$base" | sed 's/[^a-zA-Z0-9._-]/_/g')
-    mv -v "$f" "$dir/$newbase"
+    if [[ "$base" != "$newbase" ]]; then
+        mv -v "$f" "$dir/$newbase"
+    fi
 done
 
