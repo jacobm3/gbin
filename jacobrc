@@ -40,6 +40,7 @@ alias aws-creds='env | g ^AWS_ | cut -c 1-45 | sed "s/$/.../"'
 alias b2=backblaze-b2
 alias base64='base64 -w0'
 alias bd='base64 -d'
+alias bp='bindplane'
 alias btop='btop --utf-force'
 alias c='cat'
 alias cdi='cd /etc/init.d'
