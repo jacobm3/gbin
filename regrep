@@ -1,0 +1,13 @@
+#!/usr/bin/python3
+
+# easy grep filter with more py/re options
+
+import re
+import sys
+
+exre = re.compile(r'external.html\?link=(\S+)"')
+for line in sys.stdin:
+    #print(line)
+    m = exre.search(line)
+    if m:
+        print(m.group(1))

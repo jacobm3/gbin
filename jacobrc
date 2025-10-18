@@ -1,0 +1,222 @@
+vers="240112 `lsb_release -a 2>/dev/null | grep Release | awk '{print $2}'`"
+shopt -s extglob
+export HISTCONTROL=ignoreboth HISTSIZE=10000 HISTTIMEFORMAT='%F %T ' HISTIGNORE='*AWS_SECRET=:*AWS_SESSION=:*vault token*:*VAULT_TOKEN='
+export PATH=$PATH:$HOME/gbin:$HOME/bin:$HOME/.local/bin:$HOME/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/bin/X11:/usr/X/bin:/var/lib/flatpak/exports/bin
+export TERM=xterm-256color LANG=C 
+
+GRN='\[\033[01;32m\]' R='\[\033[01;31m\]' CYAN='\[\033[01;36m\]' WHT='\[\033[01;37m\]' BLUE='\[\033[01;34m\]' MAG='\[\033[01;35m\]' O='\[\033[00m\]'
+
+export LTZ=DST PS1="${MAG}\u${O}@${CYAN}\h${O}:\w         \D{%F} \t\n$ ${O}" 
+#export PS1='\[\e]0;\u@\h: \w\a\]\[\e[1;35m\]\u\[\e[0m\]@\[\e[1;36m\]\H\[\e[0m\]:\[\e[1;32m\]\w\[\e[0m\]\n\[\e[1;32m\]$\[\e[0m\] '
+
+
+if [ "$USER" == 'root' ]; then export PS1="$R\u$O@\h:\w         \D{%F} \t\n# "; fi
+
+#bind '"\C-i":complete'  # if tab complete doesn't work
+set -o vi
+ls --color=auto &>/dev/null; if [ 0 -eq 0 ]; then alias ls='ls --color=auto' lh='ls -lh' lha='ls -lha' lhtr='ls -lhtr'; fi;
+export EDITOR=vim PAGER=less
+export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+
+alias ..='cd ..'
+alias ...='cd ../..'
+alias ....='cd ../../..'
+alias -- -='cd -'
+alias a1="awk '{print \$1}'" a2="awk '{print \$2}'" a12="awk '{print \$1,\$2}'"
+alias a='alias'
+alias ac='apt-cache'
+alias acs='apt-cache search'
+alias add='paste -s -d+ - | bc'
+alias ag='sudo apt-get'
+alias agud='sudo apt-get update'
+alias agug='sudo apt-get update && sudo apt-get dist-upgrade'
+alias an='ansible'
+alias ap='ansible-playbook'
+alias apt='sudo apt'
+alias as=arc_summary
+alias asd='astro dev'
+alias asdr='astro dev stop && astro dev start'
+alias aws-creds='env | g ^AWS_ | cut -c 1-45 | sed "s/$/.../"'
+alias b2=backblaze-b2
+alias base64='base64 -w0'
+alias bd='base64 -d'
+alias bp='bindplane'
+alias btop='btop --utf-force'
+alias c='cat'
+alias cdi='cd /etc/init.d'
+alias clear-aws='unset AWS_DEFAULT_REGION AWS_SECRET_ACCESS_KEY AWS_ACCESS_KEY_ID'
+alias cls='clear'
+alias condense="grep -v '^\s*$' | grep -v '^#'"
+alias cpuinfo='egrep "model name|cores" /proc/cpuinfo|head -2; grep MHz /proc/cpuinfo | head -1'
+alias cx='chmod +x'
+alias d='docker' 
+alias dc='docker-compose' dcr='docker-compose restart'
+alias dfh='df -hT'
+alias dt='docker exec -it' ds='docker stats'
+
+alias dkrmall="echo; echo Removing any containers.
+               docker ps -a | grep -v CONTAINER | awk '{print \$1}' | xargs docker rm -f 2>/dev/null; 
+               echo Removing any volumes.
+               docker volume ls | grep -v DRIVER | awk '{print \$2}' | xargs docker volume rm 2>/dev/null; 
+               echo Pruning any networks.
+               docker network prune -f; echo"
+alias dsh='du -sh'
+alias dsk='du -sk'
+dn () { du -sk "$1" | sort -n; }
+
+alias d8601='date +%Y-%m-%dT%H:%M:%S%z'
+ds='date +%Y-%m-%dT%H%M%S%z'
+
+
+alias egrep='egrep --color=auto'
+alias em="sed 's/,/\n/g' | sed 's/^ //'; echo 'Jacob Martinson <jacob.martinson@astronomer.io>'"
+alias f='fg'
+alias fgrep='fgrep --color=auto'
+alias fp='flatpak'
+alias g='egrep -i'
+alias ga='git add'
+alias gc='git commit'
+alias gl='git clone'
+alias gd='git diff'
+alias gp='git pull'
+alias gh='git push'
+alias grh='git reset --hard'
+alias grhh='git reset --hard HEAD'
+alias gs='git status'
+alias gu='cd ~/gbin && git pull && cd - && . ~/gbin/jacobrc'
+alias h='history'
+alias hg='history | egrep '
+alias ht='htop'
+alias ifu='ifconfig | egrep "Link|MTU|inet"; netstat -rn'
+alias ins=instruqt
+alias j='jobs'
+alias jc=journalctl
+alias jl='jq -C | less'
+alias jq='jq -C'
+alias k='kubectl'
+alias l='ls'
+alias la='ls -A'
+alias ld='ls -ld'
+alias les='less -N'
+alias less='less -R'
+alias lh='ls -lh'
+alias lha='ls -lha'
+alias lhtr='ls -lhtr'
+alias lhtrt='ls -lhtr | tail '
+alias ll='ls -alF'
+alias ls='ls --color=auto'
+alias lsa='ls -a'
+alias ltr='ls -ltr'
+alias ltt='ls -ltr | tail'
+alias m='COLUMNS=100 man'
+alias md='mkdir'
+alias n='sudo nala'
+alias p=ping
+alias p1='ping 1.1.1.1'
+alias pug='ps aux | egrep -i '
+alias py='python3'
+alias py3='python3'
+alias rs='rm-special-chars.sh'
+alias s='ssh'
+alias sc='systemctl '
+alias sclist='systemctl list-units --type=service'
+alias sd='sudo bash'
+alias sl3='sqlite3'
+alias sn='sort -n'
+alias t='tail'
+alias tf='time terraform'
+alias tfa='time terraform apply | tee .apply.out'
+alias tfaa='time terraform apply -auto-approve | tee .apply.out'
+alias tfdaa='time terraform apply -destroy -auto-approve | tee apply.out'
+alias tfp='time terraform plan'
+alias tfs='terraform show .tf.plan.out | egrep -i " resource|region|zone |name|plan:"'
+alias tm=tmsu
+alias ts='tailscale'
+alias v='vim'
+alias venv='python3 -m venv '
+alias y='yara'
+va () { . $1/bin/activate; }
+
+
+alias vl='vault ' vtl='echo "vault token lookup"; vault token lookup | grep -v "^id" '
+alias wh='which'
+alias x='chmod +x'
+alias xo='xdg-open'
+alias yt='yt-dlp'
+alias zkeys='zfs get keystatus  -t filesystem; echo; zfs get keystatus  -t volume'
+alias zles='zless'
+alias zsomething='asdf'
+
+gpush () { git commit -am "$1"; git push; }
+
+mcd () { mkdir -p $1; cd $1; }
+
+# print details of local certificate in a file
+pcert () { openssl x509 -in $1 -text -noout; }
+
+# print details of a remote certificate at hostname/IP addr
+rcert () { openssl s_client -showcerts -connect $1:443 <<< ''; }
+
+# print details of a remote certificate at hostname/IP addr:port
+rcertport () { openssl s_client -showcerts -connect $1 <<< ''; }
+
+# print just column N, passed in as the 1st and only argument
+# similar to awk "{print $1}" but easier to type
+pc () { tr -s ' ' | cut -d ' ' -f $1; }
+
+# convert gigabytes to bytes
+gb2b () {
+    local gb=$1
+    local bytes=$(echo "$gb * 1024 * 1024 * 1024" | bc)
+    echo ${bytes%.*}
+}
+
+# script session logging wrapper
+logsess() {
+  # Usage: logsess [description]
+  # If a description is provided, it's prepended in the filename
+  # followed by an ISO-like timestamp.
+  
+  local PURPOSE="$1"
+  local TIMESTAMP
+  TIMESTAMP=$(date +"%Y-%m-%dT%H%M%S")
+
+  # If PURPOSE is empty, default to 'session'
+  if [[ -z "$PURPOSE" ]]; then
+    PURPOSE="session"
+  fi
+
+  # Combine them into the final filename
+  local FILENAME="${PURPOSE}_${TIMESTAMP}.log"
+
+  # Start the session
+  script "$FILENAME"
+}
+
+
+
+complete -C kubectl kc
+complete -C docker d
+complete -C terraform tf
+complete -C vault vault
+export JQ_COLORS='0;37:0;39:0;39:0;37:0;37:1;37:1;37'
+
+export TF_LOG_PATH=.tf.log.debug TF_CLI_ARGS_plan="-out .tf.plan.out" TF_LOG=debug
+
+which kubectl >/dev/null && source <(kubectl completion bash) && complete -o default -F __start_kubectl k
+
+if [ -e /usr/share/bash-completion/completions/zfs ]; then . /usr/share/bash-completion/completions/zfs; fi
+
+# activate default python venv if present
+#export VIRTUAL_ENV_DISABLE_PROMPT=1
+#venv_path=.venv-default/bin/activate
+#if [ -r "$venv_path" ]; then . .venv-default/bin/activate; fi
+
+# custom tailscale completion
+. complete_tailscale
+
+# enable completion on aliases
+. ~/gbin/complete_alias
+
+if [ -e ~/.bashrc.local ]; then . ~/.bashrc.local; fi
+if [ -e ~/.jacobrc.local ]; then . ~/.jacobrc.local; fi

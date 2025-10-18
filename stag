@@ -1,0 +1,3 @@
+USER=$1
+TAG=$2
+ssh -l $USER $(aws ec2 describe-instances --query "Reservations[*].Instances[*].PublicIpAddress"  --filter Name=tag:Name,Values=${TAG}  --output text) 

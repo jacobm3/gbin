@@ -1,0 +1,5 @@
+#!/bin/bash
+if [ "$2" = "up" ]; then
+    sleep 2
+    /home/j/pihole/update-pihole-dns.py
+fi
