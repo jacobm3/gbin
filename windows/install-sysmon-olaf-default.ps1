@@ -1,0 +1,12 @@
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; 
+$zip = "$env:TEMP\Sysmon.zip"; 
+Invoke-WebRequest "https://download.sysinternals.com/files/Sysmon.zip" -OutFile $zip; 
+Expand-Archive -LiteralPath $zip -DestinationPath $env:TEMP\SysmonFolder -Force; 
+$config = "$env:TEMP\sysmonconfig.xml"; 
+Invoke-WebRequest "https://raw.githubusercontent.com/olafhartong/sysmon-modular/master/sysmonconfig.xml" -OutFile $config; 
+$exe = Join-Path $env:TEMP\SysmonFolder "Sysmon64.exe"; 
+if (Get-Command "$env:SystemRoot\Sysmon64.exe" -ErrorAction SilentlyContinue) { 
+    & "$env:SystemRoot\Sysmon64.exe" -accepteula -c $config 
+} else { 
+    & $exe -accepteula -i $config 
+}
