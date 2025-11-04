@@ -9,9 +9,7 @@ echo "✅ pihole is healthy!"
 
 
 
-docker exec pihole pihole-FTL --config database.queryLogging false
 docker exec pihole pihole-FTL --config database.maxDBdays 1
-docker exec pihole pihole-FTL --config database.IPaddrDB true
 
 
 sqlite3 etc-pihole/gravity.db "DELETE FROM adlist;"
@@ -22,7 +20,11 @@ sqlite3 etc-pihole/gravity.db "INSERT OR IGNORE INTO adlist (address, comment) V
 sqlite3 etc-pihole/gravity.db "INSERT OR IGNORE INTO adlist (address, comment) VALUES ('https://raw.githubusercontent.com/nextdns/cname-cloaking-blocklist/master/domains', 'NextDNS CNAME cloaking');"
 sqlite3 etc-pihole/gravity.db "INSERT OR IGNORE INTO adlist (address, comment) VALUES ('https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/ultimate.txt', 'Hagezi Ultimate');"
 sqlite3 etc-pihole/gravity.db "INSERT OR IGNORE INTO adlist (address, comment) VALUES ('https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/tif.txt', 'Hagezi Threat Intel');"
+sqlite3 etc-pihole/gravity.db "INSERT OR IGNORE INTO adlist (address, comment) VALUES ('https://blocklistproject.github.io/Lists/malware.txt', 'Blocklist Project');"
+sqlite3 etc-pihole/gravity.db "INSERT OR IGNORE INTO adlist (address, comment) VALUES ('https://raw.githubusercontent.com/hiphopsmurf/NSABlocklist-pi-hole-edition/refs/heads/master/HOSTS%20(excluding%20most%20GOV%20URLs)', 'NSA Blocklist');"
+
 
 sqlite3 etc-pihole/gravity.db "INSERT OR IGNORE INTO domainlist (type,domain,enabled,comment) VALUES (3,'(\\.)ru$',1,'block all .ru');"
+sqlite3 etc-pihole/gravity.db "INSERT OR IGNORE INTO domainlist (type,domain,enabled,comment) VALUES (3,'(\\.)cn$',1,'block all .cn');"
 
 docker exec -it pihole pihole -g

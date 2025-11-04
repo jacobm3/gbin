@@ -20,10 +20,14 @@ services:
       # https://en.wikipedia.org/wiki/List_of_tz_database_time_zones, e.g:
       TZ: 'America/Chicago'
       # Set a password to access the web interface. Not setting one will result in a random password being assigned
-      FTLCONF_webserver_api_password: '123456-Dai1dei5aMohR7iep8ThohceYoodoph0'
+      FTLCONF_webserver_api_password: 'changeme-ab60360dcd26e70f7af9530ad60e0ec2'
       # If using Docker's default `bridge` network setting the dns listening mode should be set to 'all'
       FTLCONF_dns_listeningMode: 'all'
       PHP_SESSION_GC_MAXLIFETIME: 186400
+      FTLCONF_webserver_api_maxHistory: 63200 
+      FTLCONF_database_maxDBdays: "1"
+      FTLCONF_database_useWAL: "true"
+
     # Volumes store your data between container upgrades
     volumes:
       # For persisting Pi-hole's databases and common configuration file
