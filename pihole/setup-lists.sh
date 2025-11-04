@@ -22,7 +22,12 @@ sqlite3 etc-pihole/gravity.db "INSERT OR IGNORE INTO adlist (address, comment) V
 sqlite3 etc-pihole/gravity.db "INSERT OR IGNORE INTO adlist (address, comment) VALUES ('https://raw.githubusercontent.com/hiphopsmurf/NSABlocklist-pi-hole-edition/refs/heads/master/HOSTS%20(excluding%20most%20GOV%20URLs)', 'NSA Blocklist');"
 
 
+# deny
 sqlite3 etc-pihole/gravity.db "INSERT OR IGNORE INTO domainlist (type,domain,enabled,comment) VALUES (3,'(\\.)ru$',1,'block all .ru');"
 sqlite3 etc-pihole/gravity.db "INSERT OR IGNORE INTO domainlist (type,domain,enabled,comment) VALUES (3,'(\\.)cn$',1,'block all .cn');"
+
+# allow
+sqlite3 /etc/pihole/gravity.db "INSERT OR IGNORE INTO domainlist (type, domain, enabled, comment) VALUES (0, 'acs.aliexpress.us', 1, 'required for ali exp product pages');"
+
 
 docker exec -it pihole pihole -g
