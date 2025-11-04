@@ -11,8 +11,6 @@ echo "✅ pihole is healthy!"
 
 docker exec pihole pihole-FTL --config database.maxDBdays 1
 
-
-sqlite3 etc-pihole/gravity.db "DELETE FROM adlist;"
 sqlite3 etc-pihole/gravity.db "INSERT OR IGNORE INTO adlist (address, comment) VALUES ('https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts', 'Steven Black unified');"
 sqlite3 etc-pihole/gravity.db "INSERT OR IGNORE INTO adlist (address, comment) VALUES ('https://phishing.army/download/phishing_army_blocklist_extended.txt', 'Phishing Army extended');"
 sqlite3 etc-pihole/gravity.db "INSERT OR IGNORE INTO adlist (address, comment) VALUES ('https://raw.githubusercontent.com/Spam404/lists/refs/heads/master/main-blacklist.txt', 'Spam404 main');"
