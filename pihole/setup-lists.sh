@@ -27,7 +27,7 @@ sqlite3 etc-pihole/gravity.db "INSERT OR IGNORE INTO domainlist (type,domain,ena
 sqlite3 etc-pihole/gravity.db "INSERT OR IGNORE INTO domainlist (type,domain,enabled,comment) VALUES (3,'(\\.)cn$',1,'block all .cn');"
 
 # allow
-sqlite3 etc/pihole/gravity.db "INSERT OR IGNORE INTO domainlist (type, domain, enabled, comment) VALUES (0, 'acs.aliexpress.us', 1, 'required for ali exp product pages');"
+sqlite3 etc-pihole/gravity.db "INSERT OR IGNORE INTO domainlist (type, domain, enabled, comment) VALUES (0, 'acs.aliexpress.us', 1, 'required for ali exp product pages');"
 
 
 docker exec -it pihole pihole -g
