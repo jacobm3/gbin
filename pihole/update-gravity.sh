@@ -1,5 +1,8 @@
 #!/bin/bash
-# File: /home/j/pihole/update_gravity.sh
+#
+# cron:
+# 38 1 */3 * * /home/j/gbin/pihole/update-gravity.sh
+
 
 FILETS=$(date '+%Y-%m')
 DIR="/home/j/pihole"
