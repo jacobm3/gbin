@@ -1,2 +1,2 @@
-sudo nala full-upgrade
+sudo nala upgrade --full
 sudo snap refresh
