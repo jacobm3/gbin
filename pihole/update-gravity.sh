@@ -1,7 +1,10 @@
 #!/bin/bash
 # File: /home/j/pihole/update_gravity.sh
 
-LOG_FILE="/home/j/pihole/gravity.update.log"
+FILETS=$(date '+%Y-%m')
+DIR="/home/j/pihole"
+LOG_FILE="${DIR}/gravity.update.${FILETS}.log"
+mkdir -p $DIR
 
 {
   echo "===== $(date '+%Y-%m-%d %H:%M:%S') ====="
