@@ -1,0 +1,10 @@
+#!/bin/bash
+case "$1" in
+  post)
+    modprobe -r hid_multitouch hid_generic usbhid
+    sleep 1
+    modprobe usbhid hid_generic hid_multitouch
+    systemctl restart lightdm
+  ;;
+esac
+
