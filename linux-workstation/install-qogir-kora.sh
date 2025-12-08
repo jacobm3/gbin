@@ -15,4 +15,4 @@ sudo apt-get install gtk2-engines-murrine gtk2-engines-pixbuf
 cd ~/src
 git clone https://github.com/bikass/kora.git
 cd kora
-sudo cp -r sudo cp -r kora* /usr/share/icons
+sudo cp -r kora* /usr/share/icons
