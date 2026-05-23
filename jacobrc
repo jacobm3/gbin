@@ -12,6 +12,8 @@ export LTZ=DST PS1="${MAG}\u${O}@${CYAN}\h${O}:\w         \D{%F} \t\n$ ${O}"
 
 if [ "$USER" == 'root' ]; then export PS1="$R\u$O@\h:\w         \D{%F} \t\n# "; fi
 
+PROMPT_COMMAND='printf "\033[5 q"'
+
 #bind '"\C-i":complete'  # if tab complete doesn't work
 set -o vi
 ls --color=auto &>/dev/null; if [ 0 -eq 0 ]; then alias ls='ls --color=auto' lh='ls -lh' lha='ls -lha' lhtr='ls -lhtr'; fi;
@@ -80,7 +82,7 @@ alias gc='git commit'
 alias gl='git clone'
 alias gd='git diff'
 alias gp='git pull'
-alias gh='git push'
+#alias gh='git push'
 alias grh='git reset --hard'
 alias grhh='git reset --hard HEAD'
 alias gs='git status'
