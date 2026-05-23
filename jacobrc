@@ -114,6 +114,7 @@ alias ltt='ls -ltr | tail'
 alias m='COLUMNS=100 man'
 alias md='mkdir'
 alias n='sudo nala'
+alias nv='nvim'
 alias p=ping
 alias p1='ping 1.1.1.1'
 alias pug='ps aux | egrep -i '
