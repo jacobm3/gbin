@@ -219,6 +219,16 @@ if [ -e /usr/share/bash-completion/completions/zfs ]; then . /usr/share/bash-com
 # custom tailscale completion
 . complete_tailscale
 
+# load the bash-completion library; complete_alias relies on its
+# _command_offset and _completion_loader functions for the actual completion
+if ! declare -F _command_offset >/dev/null 2>&1; then
+    if [ -r /usr/share/bash-completion/bash_completion ]; then
+        . /usr/share/bash-completion/bash_completion
+    elif [ -r /etc/bash_completion ]; then
+        . /etc/bash_completion
+    fi
+fi
+
 # enable completion on aliases
 . ~/gbin/complete_alias
 
