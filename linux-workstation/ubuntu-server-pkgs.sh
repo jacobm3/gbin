@@ -1,6 +1,9 @@
+#!/usr/bin/env bash
+set -e
+export DEBIAN_FRONTEND=noninteractive
 
 apt-get update
-apt-get install \
+apt-get install -y \
 7zip \
 apt-transport-https \
 btop \
@@ -23,5 +26,5 @@ unzip \
 vim \
 wget \
 zip \
-zstd \
+zstd
 
