@@ -43,12 +43,12 @@ for vmid in "$@"; do
     fi
 
     # Confirm it exists before touching anything
-    if ! qm config "$vmid" >/dev/null 2>&1; then
+    if ! sudo qm config "$vmid" >/dev/null 2>&1; then
         echo "warning: VM $vmid does not exist, skipping" >&2
         continue
     fi
 
-    name=$(qm config "$vmid" | awk -F': ' '/^name:/ {print $2}')
+    name=$(sudo qm config "$vmid" | awk -F': ' '/^name:/ {print $2}')
     name=${name:-<unnamed>}
 
     if [[ $dry -eq 1 ]]; then
@@ -62,8 +62,8 @@ for vmid in "$@"; do
     fi
 
     echo ">>> stopping $vmid"
-    qm stop "$vmid" || true   # already-stopped is fine; don't abort the run
+    sudo qm stop "$vmid" || true   # already-stopped is fine; don't abort the run
     echo ">>> destroying $vmid"
-    qm destroy "$vmid" --purge --destroy-unreferenced-disks 1
+    sudo qm destroy "$vmid" --purge --destroy-unreferenced-disks 1
     echo ">>> done: $vmid ($name)"
 done
