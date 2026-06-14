@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+# vm-nuke — forcibly stop and destroy Proxmox VM(s) with all associated resources.
+# Must be run on a Proxmox VE node (requires `qm`).
+set -euo pipefail
+
+usage() {
+    cat <<'EOF'
+Usage: vm-nuke [-f] [-n] <vmid> [vmid...]
+
+Forcibly stop and destroy one or more Proxmox VMs, purging related configs
+(backup/replication/HA) and any unreferenced disks on active storages.
+
+Options:
+  -f    Force: skip the confirmation prompt (for automation)
+  -n    Dry run: print what would happen, change nothing
+  -h    Show this help
+EOF
+}
+
+force=0
+dry=0
+while getopts 'fnh' opt; do
+    case "$opt" in
+        f) force=1 ;;
+        n) dry=1 ;;
+        h) usage; exit 0 ;;
+        *) usage >&2; exit 2 ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+[[ $# -eq 0 ]] && { usage >&2; exit 2; }
+
+if ! command -v qm >/dev/null 2>&1; then
+    echo "error: qm not found — run this on a Proxmox VE node" >&2
+    exit 1
+fi
+
+for vmid in "$@"; do
+    if ! [[ "$vmid" =~ ^[0-9]+$ ]]; then
+        echo "error: '$vmid' is not a valid VMID" >&2
+        exit 2
+    fi
+
+    # Confirm it exists before touching anything
+    if ! qm config "$vmid" >/dev/null 2>&1; then
+        echo "warning: VM $vmid does not exist, skipping" >&2
+        continue
+    fi
+
+    name=$(qm config "$vmid" | awk -F': ' '/^name:/ {print $2}')
+    name=${name:-<unnamed>}
+
+    if [[ $dry -eq 1 ]]; then
+        echo "[dry-run] would stop and destroy VM $vmid ($name)"
+        continue
+    fi
+
+    if [[ $force -ne 1 ]]; then
+        read -rp "Destroy VM $vmid ($name) and ALL its resources? [y/N] " ans
+        [[ "$ans" =~ ^[Yy]$ ]] || { echo "skipped $vmid"; continue; }
+    fi
+
+    echo ">>> stopping $vmid"
+    qm stop "$vmid" || true   # already-stopped is fine; don't abort the run
+    echo ">>> destroying $vmid"
+    qm destroy "$vmid" --purge --destroy-unreferenced-disks 1
+    echo ">>> done: $vmid ($name)"
+done
