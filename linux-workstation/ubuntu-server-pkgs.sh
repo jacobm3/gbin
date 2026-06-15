@@ -17,7 +17,7 @@ jq \
 lm-sensors \
 lshw \
 lsof \
-nala
+nala \
 ncdu \
 nmap \
 pciutils \
