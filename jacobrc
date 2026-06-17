@@ -163,7 +163,7 @@ alias zkeys='zfs get keystatus  -t filesystem; echo; zfs get keystatus  -t volum
 alias zles='zless'
 alias zsomething='asdf'
 
-gpush () { git commit -am "$1"; git push; }
+gpc () { git commit -am "$1"; git push; }
 
 mcd () { mkdir -p $1; cd $1; }
 
