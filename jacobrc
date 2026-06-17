@@ -2,6 +2,15 @@ vers="240112 `lsb_release -a 2>/dev/null | grep Release | awk '{print $2}'`"
 shopt -s extglob
 export HISTCONTROL=ignoreboth HISTSIZE=10000 HISTTIMEFORMAT='%F %T ' HISTIGNORE='*AWS_SECRET=:*AWS_SESSION=:*vault token*:*VAULT_TOKEN='
 export PATH=$PATH:$HOME/gbin:$HOME/bin:$HOME/.local/bin:$HOME/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/bin/X11:/usr/X/bin:/var/lib/flatpak/exports/bin
+# Scripts are organized into category subdirectories under ~/gbin; add each to
+# PATH so they remain callable as bare commands after the repo reorg.
+for _d in "$HOME"/gbin/*/; do
+  case ":$PATH:" in
+    *":${_d%/}:"*) ;;
+    *) PATH="$PATH:${_d%/}" ;;
+  esac
+done
+unset _d
 for b in /home/linuxbrew/.linuxbrew/bin/brew /opt/homebrew/bin/brew /usr/local/bin/brew; do [ -x "$b" ] && eval "$("$b" shellenv)" && break; done
 export TERM=xterm-256color LANG=en_US.UTF-8
 
@@ -219,7 +228,7 @@ if [ -e /usr/share/bash-completion/completions/zfs ]; then . /usr/share/bash-com
 #if [ -r "$venv_path" ]; then . .venv-default/bin/activate; fi
 
 # custom tailscale completion
-. complete_tailscale
+. ~/gbin/shell/complete_tailscale
 
 # load the bash-completion library; complete_alias relies on its
 # _command_offset and _completion_loader functions for the actual completion
@@ -232,7 +241,7 @@ if ! declare -F _command_offset >/dev/null 2>&1; then
 fi
 
 # enable completion on aliases
-. ~/gbin/complete_alias
+. ~/gbin/shell/complete_alias
 
 if [ -e ~/.bashrc.local ]; then . ~/.bashrc.local; fi
 if [ -e ~/.jacobrc.local ]; then . ~/.jacobrc.local; fi

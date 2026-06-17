@@ -3,7 +3,7 @@
 # 
 # export DEBIAN_FRONTEND=noninteractive; apt-get update && apt install -y curl git sudo
 # usermod -G sudo -a j; echo '%sudo ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
-# curl -sSL https://raw.githubusercontent.com/jacobm3/gbin/main/live-setup.sh | bash
+# curl -sSL https://raw.githubusercontent.com/jacobm3/gbin/main/system-setup/live-setup.sh | bash
 #
 
 mkdir -p ~/.ssh

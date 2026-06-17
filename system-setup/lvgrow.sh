@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# curl -sSL https://raw.githubusercontent.com/jacobm3/gbin/main/lvgrow.sh | sudo bash
+# curl -sSL https://raw.githubusercontent.com/jacobm3/gbin/main/system-setup/lvgrow.sh | sudo bash
 
 # extend a partition and LVM filesystem using the default paths in ubuntu22
 export DEBIAN_FRONTEND=noninteractive

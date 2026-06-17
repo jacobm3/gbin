@@ -1,6 +1,6 @@
 #!/bin/bash -x
 
-# curl -sSL https://raw.githubusercontent.com/jacobm3/gbin/main/pve-init.sh | bash 
+# curl -sSL https://raw.githubusercontent.com/jacobm3/gbin/main/proxmox/pve-init.sh | bash 
 
 mkdir -p ~/.ssh
 cat > ~/.ssh/authorized_keys <<EOF

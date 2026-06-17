@@ -1,3 +1,29 @@
+## Repo layout
+
+Scripts are grouped into category directories. `jacobrc` adds each subdirectory
+to `PATH`, so every script stays callable as a bare command after `git pull`.
+
+| Directory | Contents |
+|---|---|
+| `aws/` | AWS EC2/S3 helpers (`stag`, `s3-photo-sync*`, instance lookups) |
+| `azure/` | Azure helpers (`azsp2env.py`) |
+| `vault/` | HashiCorp Vault install/check/unseal/snapshot |
+| `video/` | ffmpeg trim/split/flip + frame montage |
+| `youtube/` | yt-dlp download wrappers |
+| `images/` | image conversion (`resize-jpg.sh`) |
+| `k3s/` | k3s start/stop |
+| `zfs/` | ZFS key-load/mount and zed test |
+| `monitoring/` | Observium, SMART temps, smokeping checks |
+| `pushover/` | Pushover notification scripts (`po`, `po-timer`) |
+| `crypto/` | `jwks2pem`, `passgen` |
+| `wsl/` | WSL2 setup scripts |
+| `system-setup/` | VM/host provisioning (`live-setup.sh`, `lvgrow.sh`, etc.) |
+| `shell/` | shell/editor env: completions, colors, `vim.sh` |
+| `utils/` | misc CLI utilities (`ng`, `pg`, `regrep`, text/file helpers) |
+| `git/`, `proxmox/`, `pve-backup/`, `linux-workstation/`, `docker/`, `pihole/`, `dell-fixes/`, `fio-benchmark/`, `keyrings/`, `windows/`, `config/` | topic-specific configs and scripts |
+
+`jacobrc` and `jacobrc.local` stay in the repo root since they are sourced as `~/gbin/jacobrc`.
+
 ## Passwordless sudo setup
 echo '%sudo  ALL=(ALL) NOPASSWD: ALL' | sudo tee -a /etc/sudoers
 
