@@ -37,14 +37,15 @@ def human(n):
     return str(n)
 
 
-# 8-bit ANSI; degrade gracefully if the terminal ignores them.
-DIM, CYAN, GREEN, YELLOW, RED, RESET = (
-    "\033[2m", "\033[36m", "\033[32m", "\033[33m", "\033[31m", "\033[0m")
+# ANSI; degrade gracefully if the terminal ignores them. GREY is a 256-color
+# light grey for the gauge's healthy state — quiet, so it doesn't pull the eye.
+DIM, CYAN, GREEN, YELLOW, RED, GREY, RESET = (
+    "\033[2m", "\033[36m", "\033[32m", "\033[33m", "\033[31m", "\033[38;5;250m", "\033[0m")
 
 
 def usage_color(pct):
-    """Green under 50%, yellow under 80%, red at/above — matches a quota gauge."""
-    return GREEN if pct < 50 else YELLOW if pct < 80 else RED
+    """Light grey under 50%, yellow under 80%, red at/above — a quiet quota gauge."""
+    return GREY if pct < 50 else YELLOW if pct < 80 else RED
 
 
 def bar(pct, width=12):
