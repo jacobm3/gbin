@@ -13,9 +13,20 @@ import os
 import socket
 import sys
 
-# Context window for the model family. exceeds_200k_tokens in the input blob
-# confirms 200k is the meaningful threshold Claude Code itself watches.
-CONTEXT_LIMIT = 200_000
+def context_limit(model_id):
+    """Context window for the active model, derived from its id.
+
+    Current Fable/Opus/Sonnet ship a 1M window; Haiku and older models are 200k.
+    Match by family substring so version-suffixed ids still resolve; default to
+    200k (the conservative floor, matching Claude Code's exceeds_200k_tokens flag).
+    """
+    m = (model_id or "").lower()
+    if "haiku" in m:
+        return 200_000
+    if any(fam in m for fam in ("fable", "mythos", "opus-4-8", "opus-4-7",
+                                "opus-4-6", "sonnet-4-6")):
+        return 1_000_000
+    return 200_000
 
 
 def human(n):
@@ -74,8 +85,9 @@ def main():
     project_dir = ws.get("project_dir") or ws.get("current_dir") or data.get("cwd") or os.getcwd()
     project = os.path.basename(project_dir.rstrip("/")) or project_dir
 
+    limit = context_limit((data.get("model") or {}).get("id"))
     total, context = parse_transcript(data.get("transcript_path"))
-    pct = round(context / CONTEXT_LIMIT * 100) if CONTEXT_LIMIT else 0
+    pct = round(context / limit * 100) if limit else 0
 
     # ANSI colors; degrade gracefully if the terminal ignores them.
     dim, cyan, green, yellow, reset = "\033[2m", "\033[36m", "\033[32m", "\033[33m", "\033[0m"
@@ -84,7 +96,7 @@ def main():
         f"{cyan}{host}{reset}"
         f"{sep}{green}{project}{reset}"
         f"{sep}{dim}tok{reset} {human(total)}"
-        f"{sep}{dim}ctx{reset} {human(context)}/{human(CONTEXT_LIMIT)} {yellow}{pct}%{reset}",
+        f"{sep}{dim}ctx{reset} {human(context)}/{human(limit)} {yellow}{pct}%{reset}",
         end="",
     )
 
