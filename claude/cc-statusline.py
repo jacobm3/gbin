@@ -40,7 +40,7 @@ def human(n):
 # ANSI; degrade gracefully if the terminal ignores them. GREY is a 256-color
 # light grey for the gauge's healthy state — quiet, so it doesn't pull the eye.
 DIM, CYAN, GREEN, YELLOW, RED, GREY, RESET = (
-    "\033[2m", "\033[36m", "\033[32m", "\033[33m", "\033[31m", "\033[38;5;250m", "\033[0m")
+    "\033[2m", "\033[36m", "\033[32m", "\033[33m", "\033[31m", "\033[38;5;246m", "\033[0m")
 
 
 def usage_color(pct):
