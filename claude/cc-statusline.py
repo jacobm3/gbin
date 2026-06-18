@@ -37,6 +37,25 @@ def human(n):
     return str(n)
 
 
+# 8-bit ANSI; degrade gracefully if the terminal ignores them.
+DIM, CYAN, GREEN, YELLOW, RED, RESET = (
+    "\033[2m", "\033[36m", "\033[32m", "\033[33m", "\033[31m", "\033[0m")
+
+
+def usage_color(pct):
+    """Green under 50%, yellow under 80%, red at/above — matches a quota gauge."""
+    return GREEN if pct < 50 else YELLOW if pct < 80 else RED
+
+
+def bar(pct, width=12):
+    """Render a quota gauge like ▕███░░░░░▏ 42%, colored by fill level."""
+    pct = max(0.0, min(100.0, float(pct)))
+    filled = round(pct / 100 * width)
+    color = usage_color(pct)
+    gauge = color + "█" * filled + DIM + "░" * (width - filled) + RESET
+    return f"{DIM}▕{RESET}{gauge}{DIM}▏{RESET} {color}{round(pct)}%{RESET}"
+
+
 def parse_transcript(path):
     """Return (total_tokens_consumed, current_context_tokens).
 
@@ -89,16 +108,26 @@ def main():
     total, context = parse_transcript(data.get("transcript_path"))
     pct = round(context / limit * 100) if limit else 0
 
-    # ANSI colors; degrade gracefully if the terminal ignores them.
-    dim, cyan, green, yellow, reset = "\033[2m", "\033[36m", "\033[32m", "\033[33m", "\033[0m"
-    sep = f" {dim}|{reset} "
-    print(
-        f"{cyan}{host}{reset}"
-        f"{sep}{green}{project}{reset}"
-        f"{sep}{dim}tok{reset} {human(total)}"
-        f"{sep}{dim}ctx{reset} {human(context)}/{human(limit)} {yellow}{pct}%{reset}",
-        end="",
-    )
+    sep = f" {DIM}|{RESET} "
+    parts = [
+        f"{CYAN}{host}{RESET}",
+        f"{GREEN}{project}{RESET}",
+        f"{DIM}tok{RESET} {human(total)}",
+        f"{DIM}ctx{RESET} {human(context)}/{human(limit)} {YELLOW}{pct}%{RESET}",
+    ]
+
+    # Subscription usage (Pro/Max only; present after the first API response).
+    # five_hour = the rolling session window /usage calls "current session";
+    # seven_day = current week across all models. Each may be independently absent.
+    rl = data.get("rate_limits") or {}
+    session = (rl.get("five_hour") or {}).get("used_percentage")
+    week = (rl.get("seven_day") or {}).get("used_percentage")
+    if session is not None:
+        parts.append(f"{DIM}ses{RESET} {bar(session)}")
+    if week is not None:
+        parts.append(f"{DIM}wk{RESET} {bar(week)}")
+
+    print(sep.join(parts), end="")
 
 
 if __name__ == "__main__":
