@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# gbin pre-commit hook: scan staged changes for secrets with gitleaks and
+# block the commit if any are found.
+#
+# This hook is committed to the repo and travels with every clone, but git does
+# not auto-activate hooks from a fresh clone (RCE protection). Activate it once
+# per clone with:   ./git/setup-githooks.sh
+#
+# Bypass (discouraged):  git commit --no-verify
+set -uo pipefail
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "pre-commit: gitleaks not installed — run ./git/setup-githooks.sh" >&2
+  echo "pre-commit: (to bypass this check: git commit --no-verify)" >&2
+  exit 1
+fi
+
+# gitleaks v8.18+ removed 'protect' in favour of 'git --staged'.
+# Prefer the new command; fall back to 'protect' for older installed binaries.
+if gitleaks git --help >/dev/null 2>&1; then
+  exec gitleaks git --staged --redact --verbose
+else
+  exec gitleaks protect --staged --redact --verbose
+fi
