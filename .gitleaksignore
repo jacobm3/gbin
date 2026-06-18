@@ -1,0 +1,5 @@
+# gitleaks fingerprints to ignore (format: commit:file:rule:line)
+# Pi-hole web API password in old pihole/docker-compose.yml history.
+# Value is empty in the current file (Pi-hole auto-generates); password was
+# deemed low-value and left in history rather than rewriting. Safe to ignore.
+f4ced906acf5cc561b99ca313e52477b7e55c25c:pihole/docker-compose.yml:generic-api-key:23
