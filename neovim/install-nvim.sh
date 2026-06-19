@@ -109,11 +109,14 @@ if [ "$DO_NVIM" -eq 1 ]; then
 fi
 
 # --- phase 2: tree-sitter cli ---------------------------------------------
-if [ "$DO_TS" -eq 1 ]; then
-  log "tree-sitter CLI"
-
+# The tree-sitter CLI is OPTIONAL: it only compiles *new* parsers. The bundle
+# already ships precompiled parsers, so nothing here may abort the install.
+# Notably, recent release binaries are built against newer glibc than some
+# stable distros provide (e.g. Debian 12 / glibc 2.36), so the binary may
+# download fine yet fail to exec. We detect that and warn rather than die.
+install_tree_sitter() {  # returns nonzero on any problem; never aborts the script
   ts_tag="$(gh_latest_tag tree-sitter/tree-sitter)"
-  [ -n "$ts_tag" ] && [ "$ts_tag" != "null" ] || die "could not resolve tree-sitter tag"
+  [ -n "$ts_tag" ] && [ "$ts_tag" != "null" ] || { warn "could not resolve tree-sitter tag — skipping"; return 1; }
   ts_target="${ts_tag#v}"
   info "target: $ts_tag"
 
@@ -128,12 +131,25 @@ if [ "$DO_TS" -eq 1 ]; then
   else
     url="https://github.com/tree-sitter/tree-sitter/releases/download/$ts_tag/$TS_ASSET"
     info "downloading $url"
-    curl -fSL --retry 3 -o "$TMP/$TS_ASSET" "$url" || die "tree-sitter download failed"
-    gunzip -c "$TMP/$TS_ASSET" > "$BIN_DIR/tree-sitter" || die "tree-sitter extract failed"
-    chmod +x "$BIN_DIR/tree-sitter"
+    curl -fSL --retry 3 -o "$TMP/$TS_ASSET" "$url" || { warn "tree-sitter download failed — skipping"; return 1; }
+    gunzip -c "$TMP/$TS_ASSET" > "$TMP/tree-sitter" || { warn "tree-sitter extract failed — skipping"; return 1; }
+    chmod +x "$TMP/tree-sitter"
+    # Verify it actually runs (catches glibc mismatches) before installing it.
+    if ! ver="$("$TMP/tree-sitter" --version 2>&1)"; then
+      warn "tree-sitter binary will not run on this system — skipping:"
+      info "$ver"
+      info "(usually a glibc mismatch; the bundle's precompiled parsers still work.)"
+      return 1
+    fi
+    mv "$TMP/tree-sitter" "$BIN_DIR/tree-sitter"
     info "installed -> $BIN_DIR/tree-sitter"
   fi
   "$BIN_DIR/tree-sitter" --version
+}
+
+if [ "$DO_TS" -eq 1 ]; then
+  log "tree-sitter CLI"
+  install_tree_sitter || warn "tree-sitter CLI not installed (optional) — continuing"
 fi
 
 # --- phase 3: deploy bundle -----------------------------------------------
@@ -170,7 +186,10 @@ if command -v "$BIN_DIR/nvim" >/dev/null 2>&1; then
     "+lua io.write(#(vim.fn.globpath(vim.fn.stdpath('data')..'/site/parser','*.so',0,1)))" +qa 2>/dev/null || echo '?')"
   info "precompiled tree-sitter parsers in data dir: $parser_count"
 fi
-[ -x "$BIN_DIR/tree-sitter" ] && "$BIN_DIR/tree-sitter" --version
+if [ -x "$BIN_DIR/tree-sitter" ]; then
+  "$BIN_DIR/tree-sitter" --version || warn "tree-sitter installed but not runnable (optional)"
+fi
+exit 0
 
 log "Done."
 info "Refresh plugins offline:  nvim '+lua vim.pack.update(nil, { offline = true })'"
