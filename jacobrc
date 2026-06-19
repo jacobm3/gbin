@@ -12,7 +12,13 @@ for _d in "$HOME"/gbin/*/; do
 done
 unset _d
 for b in /home/linuxbrew/.linuxbrew/bin/brew /opt/homebrew/bin/brew /usr/local/bin/brew; do [ -x "$b" ] && eval "$("$b" shellenv)" && break; done
-export TERM=xterm-256color LANG=en_US.UTF-8
+export LANG=en_US.UTF-8
+# Force a capable TERM only OUTSIDE a multiplexer. tmux/screen export their own
+# TERM (tmux-256color / screen-256color) which TUIs must see to render cleanly;
+# clobbering it back to xterm-256color causes escape-sequence garbage.
+if [ -z "$TMUX" ] && [ -z "$STY" ]; then export TERM=xterm-256color; fi
+# Advertise 24-bit truecolor (XFCE Terminal / VTE supports it; tmux passes through)
+export COLORTERM=truecolor
 
 GRN='\[\033[01;32m\]' R='\[\033[01;31m\]' CYAN='\[\033[01;36m\]' WHT='\[\033[01;37m\]' BLUE='\[\033[01;34m\]' MAG='\[\033[01;35m\]' O='\[\033[00m\]'
 
