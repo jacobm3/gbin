@@ -277,8 +277,27 @@ schelp() {
       printf 'scu\tSC User\t<verb> operate on your --user units (never sudo)\n'
       printf 'scen\tSC ENable\t<unit> enable + start in one shot (--now)\n'
       printf 'scdis\tSC DISable\t<unit> disable + stop in one shot (--now)\n'
-      printf 'jc\tJournalCtl\tlogs: jc -fu <unit>, jc -xe, jc -b -1, jc -p err\n'
+      printf 'jc\tJournalCtl\tsystem/service logs (journalctl) — flags in the jc section below\n'
       printf 'schelp\tSC HELP\tthis reference (alias: sch)\n'
+    } | column -t -s $'\t' | sed -E "s/^([^[:space:]]+)/${b}\\1${n}/"
+
+    printf '\n%s\n' "${b}── journalctl (jc) ──${n}  (prefix each with 'jc'; add -u <unit> to scope to one unit)"
+    { printf 'FLAGS\tWHAT IT DOES\n'
+      printf '%s\t%s\n' '-u <unit>'           'logs for ONE unit (repeatable for several)'
+      printf '%s\t%s\n' '-f'                  'follow live, like tail -f (Ctrl-C to stop)'
+      printf '%s\t%s\n' '-fu <unit>'          'follow ONE unit (-f plus -u)'
+      printf '%s\t%s\n' '-e'                  'jump to the end (newest entries)'
+      printf '%s\t%s\n' '-xe'                 'end + explanatory hints — debugging failed starts'
+      printf '%s\t%s\n' '-b'                  'this boot only;  -b -1 = the previous boot'
+      printf '%s\t%s\n' '-k'                  'kernel messages only (dmesg-style)'
+      printf '%s\t%s\n' '-p err'              'priority err and worse (emerg|alert|crit|err)'
+      printf '%s\t%s\n' '-g <regex>'          'grep the message text'
+      printf '%s\t%s\n' '-n 50'               'last 50 lines (default 10);  -n with no number = all'
+      printf '%s\t%s\n' '-r'                  'newest first (reverse order)'
+      printf '%s\t%s\n' '-o cat'              'bare messages — strip timestamp/host/metadata'
+      printf '%s\t%s\n' '--since "1 hour ago"' 'time window (pairs with --until "...")'
+      printf '%s\t%s\n' '--disk-usage'        'how much disk the journal is using'
+      printf '%s\t%s\n' '--vacuum-time=2d'    'delete journal entries older than 2 days'
     } | column -t -s $'\t' | sed -E "s/^([^[:space:]]+)/${b}\\1${n}/"
   } | _sd_page
 }
