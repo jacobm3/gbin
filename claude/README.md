@@ -26,7 +26,21 @@ script reads it from the session transcript (`~/.claude/projects/.../*.jsonl`).
 
 ## Enable
 
-Add to `~/.claude/settings.json`:
+The script ships with this repo, so on any machine that has `gbin` cloned the
+only step is pointing Claude Code at it. Run the installer:
+
+```sh
+./install-statusline.sh              # configure THIS machine
+./install-statusline.sh j@10.0.0.21 j@10.0.0.22   # ...or fan out over ssh
+```
+
+It patches `~/.claude/settings.json` (creating it if absent), leaving every
+other setting untouched, and is idempotent — re-running just re-asserts the
+block. Remote mode pipes the same script over ssh to each target, which already
+has `~/gbin` if you ran `../git/add-gitea-dual-push.sh`. No Claude inference
+involved. Restart / refresh Claude Code to pick it up.
+
+To wire it up by hand instead, add to `~/.claude/settings.json`:
 
 ```json
 "statusLine": {
@@ -35,4 +49,4 @@ Add to `~/.claude/settings.json`:
 }
 ```
 
-Needs `python3` (stdlib only). Restart / refresh Claude Code to pick it up.
+Needs `python3` (stdlib only).
