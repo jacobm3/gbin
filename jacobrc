@@ -12,7 +12,16 @@ for _d in "$HOME"/gbin/*/; do
 done
 unset _d
 for b in /home/linuxbrew/.linuxbrew/bin/brew /opt/homebrew/bin/brew /usr/local/bin/brew; do [ -x "$b" ] && eval "$("$b" shellenv)" && break; done
-export LANG=en_US.UTF-8
+# Pick a UTF-8 locale that actually exists. en_US.UTF-8 isn't generated on minimal
+# boxes/containers, so LANG silently falls back to C and UTF-8 output (e.g. the box
+# chars in `sch`) renders as <E2><94><80>. C.UTF-8 needs no generated locale, so use
+# it as the portable fallback. Set LC_CTYPE too so character handling sticks.
+if locale -a 2>/dev/null | grep -qiE '^en_US\.(utf-?8)$'; then
+  export LANG=en_US.UTF-8
+else
+  export LANG=C.UTF-8
+fi
+export LC_CTYPE=$LANG
 # Force a capable TERM only OUTSIDE a multiplexer. tmux/screen export their own
 # TERM (tmux-256color / screen-256color) which TUIs must see to render cleanly;
 # clobbering it back to xterm-256color causes escape-sequence garbage.
