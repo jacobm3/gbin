@@ -1,0 +1,13 @@
+# Check for any exit-on-error traps
+trap -p
+
+# Check what shell you're actually in
+echo "$SHELL"
+ps -p $$
+
+# Look at your startup files
+grep -n "exit" ~/.bashrc ~/.profile ~/.bash_profile 2>/dev/null | head -20
+
+# Check if there's a wrapper around bash
+type bash
+ls -la /usr/bin/bash
