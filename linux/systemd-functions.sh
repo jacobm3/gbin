@@ -172,33 +172,50 @@ sc() {
   SYSTEMD_COLORS=$c "$@"
 }
 
-# sclu = SystemCtl List Units — services in a given state (default: running).
+# The list bodies are split into _sclu/_sclt (emit colorized text, no pager) and the
+# public sclu/sclt (page that text). scl can then merge both bodies into ONE pager so
+# units and timers share a single scrollback instead of opening back-to-back pagers.
+# Color (c) and width (w) are decided by the public fn — its stdout is the real tty, so
+# `tput cols` and the color test are accurate before output is piped into _sd_page.
+
+# _sclu <color> <width> [state] — colorized unit list, no pager.
 # systemctl only tints PROBLEM rows (failed/not-found) and leaves healthy ones plain,
 # so forcing SYSTEMD_COLORS buys nothing here. Reformat like scgr and run through our
 # own colorizer instead, so STATE is colored for every row (running=green, dead=dim…).
-sclu() {
-  local w=${COLUMNS:-$(tput cols 2>/dev/null || echo 120)} c=0; [[ -t 1 ]] && c=1
+_sclu() {
+  local c=$1 w=$2
   { printf 'UNIT\tSTATE\tDESCRIPTION\n'
-    systemctl list-units --type=service --state="${1:-running}" --no-legend |
+    systemctl list-units --type=service --state="${3:-running}" --no-legend |
       awk '{ i=($1=="●")?2:1; d=""; for(j=i+4;j<=NF;j++) d=d (d?" ":"") $j
              printf "%s\t%s\t%s\n", $i, $(i+3), d }'
-  } | column -t -s $'\t' | cut -c "1-$w" | _sd_paint "$c" | _sd_page
+  } | column -t -s $'\t' | cut -c "1-$w" | _sd_paint "$c"
+}
+
+# _sclt <color> <width> [timer args…] — colorized timer list, no pager.
+# Date columns hold spaces, so positional reformatting is unreliable; instead keep
+# systemctl's own layout, clip to the terminal width (piped output is a fixed 142 cols
+# wide and would otherwise wrap), and colorize — durations turn lavender, the header bold.
+_sclt() {
+  local c=$1 w=$2; shift 2
+  systemctl list-timers "$@" --no-pager | cut -c "1-$w" | _sd_paint "$c"
+}
+
+# sclu = SystemCtl List Units — services in a given state (default: running).
+sclu() {
+  local w=${COLUMNS:-$(tput cols 2>/dev/null || echo 120)} c=0; [[ -t 1 ]] && c=1
+  _sclu "$c" "$w" "$@" | _sd_page
 }
 
 # sclt = SystemCtl List Timers — every timer with its next/last run time.
-# Its date columns hold spaces, so positional reformatting is unreliable; instead keep
-# systemctl's own layout, clip to the terminal width (piped output is a fixed 142 cols
-# wide and would otherwise wrap), and colorize — durations turn lavender, the header bold.
 sclt() {
   local w=${COLUMNS:-$(tput cols 2>/dev/null || echo 120)} c=0; [[ -t 1 ]] && c=1
-  systemctl list-timers "$@" --no-pager | cut -c "1-$w" | _sd_paint "$c" | _sd_page
+  _sclt "$c" "$w" "$@" | _sd_page
 }
 
-# scl = SystemCtl List — units then timers, the two list views back to back.
+# scl = SystemCtl List — units then timers in ONE paged buffer (any args filter units).
 scl() {
-  sclu "$@"
-  echo
-  sclt
+  local w=${COLUMNS:-$(tput cols 2>/dev/null || echo 120)} c=0; [[ -t 1 ]] && c=1
+  { _sclu "$c" "$w" "$@"; echo; _sclt "$c" "$w"; } | _sd_page
 }
 
 # sctd = SystemCtl Timer Detail — a timer's schedule AND the unit it activates.
