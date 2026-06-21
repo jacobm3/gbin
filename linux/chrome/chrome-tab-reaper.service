@@ -1,0 +1,22 @@
+[Unit]
+Description=Kill Chrome/Chromium renderer tabs over a RAM threshold
+Documentation=https://github.com/jacobm3/gbin/tree/main/linux/chrome
+After=multi-user.target
+
+[Service]
+Type=oneshot
+# RAM threshold in GiB (RSS). A renderer above this is killed.
+Environment=THRESHOLD_GB=4
+# Uncomment the next line to scan/log without ever killing anything:
+# Environment=DRY_RUN=1
+ExecStart=/usr/local/sbin/chrome-tab-reaper
+Nice=10
+IOSchedulingClass=idle
+
+# Light hardening (still needs to read all of /proc and signal processes).
+NoNewPrivileges=true
+ProtectHome=read-only
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

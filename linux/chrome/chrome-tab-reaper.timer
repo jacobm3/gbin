@@ -1,0 +1,14 @@
+[Unit]
+Description=Hourly Chrome tab RAM reaper
+Documentation=https://github.com/jacobm3/gbin/tree/main/linux/chrome
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=1h
+# Catch up on a missed run if the machine was asleep/off at the scheduled time.
+Persistent=true
+# Spread load so many machines don't fire at the exact same second.
+RandomizedDelaySec=2min
+
+[Install]
+WantedBy=timers.target
