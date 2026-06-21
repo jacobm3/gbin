@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=Terminal with Tabs
-Exec=bash /home/j/gbin/launch_terminal_tabs.sh
+Exec=bash /home/j/gbin/linux/linux-workstation/launch_terminal_tabs.sh
 Hidden=false
 NoDisplay=false
 X-XFCE-Autostart=true
