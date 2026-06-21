@@ -1,6 +1,6 @@
 # ──────────────────────────────────────────────────────────────────────
 #  systemd helpers cheat-sheet
-#    sc / scu / jc / scen / scdis / sclu / sclt / sctd / scwh / scgr / scboot
+#    sc / scu / jc / scen / scdis / scl / sclu / sclt / sctd / scwh / scgr / scboot
 #  Run `schelp` for a colorized list of all of these.
 #  sc auto-adds sudo for mutating verbs. scu = --user. jc = journalctl.
 #  Output is colorized k9s-style on a terminal (green=up, dim=off, red=bad);
@@ -9,6 +9,7 @@
 #
 # mnemonics: every name reads as "SystemCtl + verb", so the letters tell you what it does.
 # sc     = SystemCtl                       — the base wrapper (auto-sudo for mutating verbs)
+# scl    = SystemCtl List                  — units then timers, back to back
 # sclu   = SystemCtl List Units            — what's loaded/running right now
 # sclt   = SystemCtl List Timers           — timer schedules: next/last run
 # sctd   = SystemCtl Timer Detail          — a timer's schedule + the unit it runs
@@ -99,7 +100,7 @@
 # parse time, so `sc() {...}` silently becomes `systemctl() {...}` — a function that
 # calls itself forever, overflowing the stack and SEGV-ing the shell (closes the tab).
 # Drop any conflicting aliases first so these define under their intended names.
-unalias sc scu sclu sclt sctd scwh scgr scboot scen scdis jc schelp sch 2>/dev/null
+unalias sc scu scl sclu sclt sctd scwh scgr scboot scen scdis jc schelp sch 2>/dev/null
 
 # ── _sd_paint : k9s-style colorizer (internal) ──────────────────────────
 # Reads stdin, tints systemd state words / durations / headers, writes stdout.
@@ -193,6 +194,13 @@ sclt() {
   systemctl list-timers "$@" --no-pager | cut -c "1-$w" | _sd_paint "$c" | _sd_page
 }
 
+# scl = SystemCtl List — units then timers, the two list views back to back.
+scl() {
+  sclu "$@"
+  echo
+  sclt
+}
+
 # sctd = SystemCtl Timer Detail — a timer's schedule AND the unit it activates.
 # Accepts "certbot" or "certbot.timer".
 sctd() {
@@ -268,6 +276,7 @@ schelp() {
     printf '%s\n\n' "${b}── systemd helpers ──${n}  (sc auto-sudoes mutating verbs; lists are colored & paged)"
     { printf 'COMMAND\tMNEMONIC\tWHAT IT DOES\n'
       printf 'sc\tSystemCtl\twrapper: sc status|start|stop|restart|enable|cat|edit <unit>\n'
+      printf 'scl\tSC List\tunits (running) then timers, back to back\n'
       printf 'sclu\tSC List-Units\t[state] services in a state (default running), colored\n'
       printf 'sclt\tSC List-Timers\t[--all] timers: next/last run + what they activate\n'
       printf 'sctd\tSC Timer-Detail\t<timer> its schedule + the unit it triggers\n'

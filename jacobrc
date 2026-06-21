@@ -261,7 +261,7 @@ fi
 . ~/gbin/shell/complete_alias
 
 # systemd helper functions
-. systemd-functions.sh
+. ~/gbin/linux/systemd-functions.sh
 
 if [ -e ~/.bashrc.local ]; then . ~/.bashrc.local; fi
 if [ -e ~/.jacobrc.local ]; then . ~/.jacobrc.local; fi
