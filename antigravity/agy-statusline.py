@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Antigravity CLI (agy) status line: hostname, directory, "antigravity", model, token burn, context fill, quota.
+"""Antigravity CLI (agy) status line: hostname, directory, "agy", model, token burn, context fill, quota.
 
 agy feeds this script a JSON blob on stdin (cwd/workspace, model, transcript_path,
 context_window, tokens, rate_limits/quota, ...). Per-turn token usage isn't always
@@ -227,7 +227,7 @@ def main():
     parts = [
         f"{CYAN}{hostname}{RESET}",
         f"{GREEN}{project}{RESET}",
-        f"{BLUE}antigravity{RESET}",
+        f"{BLUE}agy{RESET}",
         f"{MAGENTA}{model_name}{RESET}",
         f"{DIM}tok{RESET} {tok_str}",
         f"{DIM}ctx{RESET} {ctx_used_str}/{ctx_limit_str} {YELLOW}{int(round(ctx_percent))}%{RESET}"
