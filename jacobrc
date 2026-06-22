@@ -42,7 +42,7 @@ PROMPT_COMMAND='printf "\033[5 q"'
 #bind '"\C-i":complete'  # if tab complete doesn't work
 set -o vi
 ls --color=auto &>/dev/null; if [ 0 -eq 0 ]; then alias ls='ls --color=auto' lh='ls -lh' lha='ls -lha' lhtr='ls -lhtr'; fi;
-export EDITOR=vim PAGER=less
+export EDITOR=vim PAGER=less LESS='-SRFX'
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 
 alias ..='cd ..'
