@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Claude Code status line: hostname, project, session token burn, context fill.
+"""Claude Code status line: hostname, 'cc', model, session token burn, context fill.
 
 Claude Code feeds this script a JSON blob on stdin (session_id, transcript_path,
 workspace, model, ...). Per-turn token usage isn't in that blob, so we read it
@@ -101,18 +101,20 @@ def main():
         data = {}
 
     host = socket.gethostname()
-    ws = data.get("workspace") or {}
-    project_dir = ws.get("project_dir") or ws.get("current_dir") or data.get("cwd") or os.getcwd()
-    project = os.path.basename(project_dir.rstrip("/")) or project_dir
 
-    limit = context_limit((data.get("model") or {}).get("id"))
+    # Model name to display; prefer the friendly display_name, fall back to id.
+    model = data.get("model") or {}
+    model_name = model.get("display_name") or model.get("id") or "?"
+
+    limit = context_limit(model.get("id"))
     total, context = parse_transcript(data.get("transcript_path"))
     pct = round(context / limit * 100) if limit else 0
 
     sep = f" {DIM}|{RESET} "
     parts = [
         f"{CYAN}{host}{RESET}",
-        f"{GREEN}{project}{RESET}",
+        f"{DIM}cc{RESET}",
+        f"{GREEN}{model_name}{RESET}",
         f"{DIM}tok{RESET} {human(total)}",
         f"{DIM}ctx{RESET} {human(context)}/{human(limit)} {YELLOW}{pct}%{RESET}",
     ]
