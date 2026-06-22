@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Claude Code status line: hostname, 'cc', model, session token burn, context fill.
+"""Claude Code status line: hostname, dir, 'cc', model, session token burn, context fill.
 
 Claude Code feeds this script a JSON blob on stdin (session_id, transcript_path,
 workspace, model, ...). Per-turn token usage isn't in that blob, so we read it
@@ -102,6 +102,12 @@ def main():
 
     host = socket.gethostname()
 
+    # Current directory name (just the basename, not the full path). Claude Code
+    # puts the working dir in workspace.current_dir; fall back to top-level cwd.
+    workspace = data.get("workspace") or {}
+    cwd = workspace.get("current_dir") or data.get("cwd") or os.getcwd()
+    dirname = os.path.basename(cwd.rstrip("/")) or cwd
+
     # Model name to display; prefer the friendly display_name, fall back to id.
     model = data.get("model") or {}
     model_name = model.get("display_name") or model.get("id") or "?"
@@ -113,6 +119,7 @@ def main():
     sep = f" {DIM}|{RESET} "
     parts = [
         f"{CYAN}{host}{RESET}",
+        f"{YELLOW}{dirname}{RESET}",
         f"{DIM}cc{RESET}",
         f"{GREEN}{model_name}{RESET}",
         f"{DIM}tok{RESET} {human(total)}",
