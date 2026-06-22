@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Antigravity CLI (agy) status line: hostname, project, model, token burn, context fill, quota.
+"""Antigravity CLI (agy) status line: hostname, directory, "antigravity", model, token burn, context fill, quota.
 
 agy feeds this script a JSON blob on stdin (cwd/workspace, model, transcript_path,
 context_window, tokens, rate_limits/quota, ...). Per-turn token usage isn't always
@@ -16,8 +16,8 @@ import socket
 
 # ANSI colors and formatting. Degrade gracefully if the terminal ignores them.
 # GREY is a 256-color light grey used for the gauge's healthy state.
-DIM, CYAN, GREEN, YELLOW, RED, GREY, MAGENTA, RESET = (
-    "\033[2m", "\033[36m", "\033[32m", "\033[33m", "\033[31m", "\033[38;5;243m", "\033[35m", "\033[0m")
+DIM, CYAN, GREEN, YELLOW, RED, GREY, MAGENTA, BLUE, RESET = (
+    "\033[2m", "\033[36m", "\033[32m", "\033[33m", "\033[31m", "\033[38;5;243m", "\033[35m", "\033[34m", "\033[0m")
 
 
 def format_tokens(num):
@@ -227,6 +227,7 @@ def main():
     parts = [
         f"{CYAN}{hostname}{RESET}",
         f"{GREEN}{project}{RESET}",
+        f"{BLUE}antigravity{RESET}",
         f"{MAGENTA}{model_name}{RESET}",
         f"{DIM}tok{RESET} {tok_str}",
         f"{DIM}ctx{RESET} {ctx_used_str}/{ctx_limit_str} {YELLOW}{int(round(ctx_percent))}%{RESET}"
