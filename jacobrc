@@ -31,6 +31,7 @@ export COLORTERM=truecolor
 
 GRN='\[\033[01;32m\]' R='\[\033[01;31m\]' CYAN='\[\033[01;36m\]' WHT='\[\033[01;37m\]' BLUE='\[\033[01;34m\]' MAG='\[\033[01;35m\]' GRAY='\[\033[38;5;246m\]' VGRAY='\[\033[38;5;240m\]' O='\[\033[00m\]'
 
+export TZ="America/Chicago"
 export LTZ=DST PS1="${MAG}\u${O}@${CYAN}\h${O}:\w         ${GRAY}\D{%F} \t   ${VGRAY}${vers}${O}\n$ ${O}"
 #export PS1='\[\e]0;\u@\h: \w\a\]\[\e[1;35m\]\u\[\e[0m\]@\[\e[1;36m\]\H\[\e[0m\]:\[\e[1;32m\]\w\[\e[0m\]\n\[\e[1;32m\]$\[\e[0m\] '
 
