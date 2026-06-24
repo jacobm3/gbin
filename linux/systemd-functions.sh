@@ -9,9 +9,9 @@
 #
 # mnemonics: every name reads as "SystemCtl + verb", so the letters tell you what it does.
 # sc     = SystemCtl                       — the base wrapper (auto-sudo for mutating verbs)
-# scl    = SystemCtl List                  — units then timers, back to back
-# sclu   = SystemCtl List Units            — what's loaded/running right now
-# sclt   = SystemCtl List Timers           — timer schedules: next/last run
+# scl    = SystemCtl List                  — units then timers, back to back  (-a = all states)
+# sclu   = SystemCtl List Units            — what's loaded/running right now   (-a = all states)
+# sclt   = SystemCtl List Timers           — timer schedules: next/last run    (-a = incl. dead)
 # sctd   = SystemCtl Timer Detail          — a timer's schedule + the unit it runs
 # scwh   = SystemCtl WHere                 — path of a unit file (+ override drop-ins)
 # scgr   = SystemCtl GRep                  — find units by name (loaded + on-disk)
@@ -56,9 +56,16 @@
 #  sc daemon-reload             ALWAYS run after editing a .service file
 #  sc reset-failed nginx        clear the "failed" flag after fixing it
 #
+#  -- list helpers (scl / sclu) ---------------------------------------
+#  sclu                         running services (the default)
+#  sclu -a                      ALL loaded services, any state (= list-units --all)
+#  sclu failed                  services in a specific state
+#  scl                          running units then active timers, one pager
+#  scl -a                       all loaded units + all timers (incl. dead)
+#
 #  -- timers (sclt / sctd) --------------------------------------------
 #  sclt                         active timers: next run, last run, target
-#  sclt --all                   include inactive/dead timers too
+#  sclt -a   (or --all)         include inactive/dead timers too
 #  sctd certbot                 a timer's schedule + the unit it triggers
 #  sc cat certbot.timer         just the raw .timer unit (OnCalendar=…)
 #
@@ -178,14 +185,18 @@ sc() {
 # Color (c) and width (w) are decided by the public fn — its stdout is the real tty, so
 # `tput cols` and the color test are accurate before output is piped into _sd_page.
 
-# _sclu <color> <width> [state] — colorized unit list, no pager.
-# systemctl only tints PROBLEM rows (failed/not-found) and leaves healthy ones plain,
-# so forcing SYSTEMD_COLORS buys nothing here. Reformat like scgr and run through our
-# own colorizer instead, so STATE is colored for every row (running=green, dead=dim…).
+# _sclu <color> <width> <all> [state] — colorized unit list, no pager.
+# <all>=1 → list-units --all (every loaded service, any state); else filter by [state]
+# (default running). systemctl only tints PROBLEM rows (failed/not-found) and leaves
+# healthy ones plain, so forcing SYSTEMD_COLORS buys nothing here. Reformat like scgr and
+# run through our own colorizer instead, so STATE is colored for every row (running=green,
+# dead=dim…).
 _sclu() {
-  local c=$1 w=$2
+  local c=$1 w=$2 all=$3; shift 3
+  local -a sel
+  (( all )) && sel=(--all) || sel=(--state="${1:-running}")
   { printf 'UNIT\tSTATE\tDESCRIPTION\n'
-    systemctl list-units --type=service --state="${3:-running}" --no-legend |
+    systemctl list-units --type=service "${sel[@]}" --no-legend |
       awk '{ i=($1=="●")?2:1; d=""; for(j=i+4;j<=NF;j++) d=d (d?" ":"") $j
              printf "%s\t%s\t%s\n", $i, $(i+3), d }'
   } | column -t -s $'\t' | cut -c "1-$w" | _sd_paint "$c"
@@ -201,21 +212,28 @@ _sclt() {
 }
 
 # sclu = SystemCtl List Units — services in a given state (default: running).
+# -a / --all → every loaded service regardless of state (maps to list-units --all).
 sclu() {
+  local all=0; [[ $1 == -a || $1 == --all ]] && { all=1; shift; }
   local w=${COLUMNS:-$(tput cols 2>/dev/null || echo 120)} c=0; [[ -t 1 ]] && c=1
-  _sclu "$c" "$w" "$@" | _sd_page
+  _sclu "$c" "$w" "$all" "$@" | _sd_page
 }
 
 # sclt = SystemCtl List Timers — every timer with its next/last run time.
+# -a / --all → include inactive/dead timers (maps to list-timers --all).
 sclt() {
+  [[ $1 == -a ]] && set -- --all "${@:2}"
   local w=${COLUMNS:-$(tput cols 2>/dev/null || echo 120)} c=0; [[ -t 1 ]] && c=1
   _sclt "$c" "$w" "$@" | _sd_page
 }
 
 # scl = SystemCtl List — units then timers in ONE paged buffer (any args filter units).
+# -a / --all → all loaded units (any state) + all timers (incl. dead).
 scl() {
+  local all=0; [[ $1 == -a || $1 == --all ]] && { all=1; shift; }
   local w=${COLUMNS:-$(tput cols 2>/dev/null || echo 120)} c=0; [[ -t 1 ]] && c=1
-  { _sclu "$c" "$w" "$@"; echo; _sclt "$c" "$w"; } | _sd_page
+  local -a tflag=(); (( all )) && tflag=(--all)
+  { _sclu "$c" "$w" "$all" "$@"; echo; _sclt "$c" "$w" "${tflag[@]}"; } | _sd_page
 }
 
 # sctd = SystemCtl Timer Detail — a timer's schedule AND the unit it activates.
@@ -293,9 +311,9 @@ schelp() {
     printf '%s\n\n' "${b}── systemd helpers ──${n}  (sc auto-sudoes mutating verbs; lists are colored & paged)"
     { printf 'COMMAND\tMNEMONIC\tWHAT IT DOES\n'
       printf 'sc\tSystemCtl\twrapper: sc status|start|stop|restart|enable|cat|edit <unit>\n'
-      printf 'scl\tSC List\tunits (running) then timers, back to back\n'
-      printf 'sclu\tSC List-Units\t[state] services in a state (default running), colored\n'
-      printf 'sclt\tSC List-Timers\t[--all] timers: next/last run + what they activate\n'
+      printf 'scl\tSC List\t[-a] units (running) then timers, back to back\n'
+      printf 'sclu\tSC List-Units\t[-a|state] services in a state (default running), colored\n'
+      printf 'sclt\tSC List-Timers\t[-a] timers: next/last run + what they activate\n'
       printf 'sctd\tSC Timer-Detail\t<timer> its schedule + the unit it triggers\n'
       printf 'scwh\tSC WHere\t<unit> path of the unit file + override drop-ins\n'
       printf 'scgr\tSC GRep\t<pattern> find units by name/description (loaded + on disk)\n'
