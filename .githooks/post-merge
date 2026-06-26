@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# gbin post-merge hook: re-apply dotfile symlinks after every `git pull`/merge.
+#
+# The hourly gbin-pull timer runs `git pull`, which fires this hook. That keeps
+# each machine's dotfile symlinks pointing at the right per-profile variant even
+# after the variants change upstream. Activated per-clone by git/setup-githooks.sh.
+set -uo pipefail
+
+# resolve repo root from this hook's location, then run the linker
+HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"   # .../gbin/.githooks
+REPO_ROOT="$(cd "$HOOK_DIR/.." && pwd)"                     # .../gbin
+
+if [ -x "$REPO_ROOT/linux/link-dotfiles.sh" ]; then
+  "$REPO_ROOT/linux/link-dotfiles.sh"
+else
+  echo "post-merge: linux/link-dotfiles.sh not found or not executable — skipped" >&2
+fi

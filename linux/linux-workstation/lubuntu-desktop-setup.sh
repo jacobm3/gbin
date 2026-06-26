@@ -2,8 +2,9 @@
 
 #echo 'CHROMIUM_FLAGS="--disable-gpu"' >> ~/.chromium-browser.init
 
-mkdir -p  ~/.config/htop
-cp htoprc.laptop ~/.config/htop/htoprc
+# htop config is now managed by the dotfile linker, which picks the right
+# per-profile variant (laptop here) and symlinks it. See linux/link-dotfiles.sh.
+"$(dirname "$0")/../link-dotfiles.sh"
 
 ASD=~/.config/autostart
 mkdir -p $ASD && cd $ASD

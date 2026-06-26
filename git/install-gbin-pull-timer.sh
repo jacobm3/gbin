@@ -13,7 +13,12 @@ GIT="$(command -v git)"
 UNIT_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
 mkdir -p "$UNIT_DIR"
 
-# Oneshot service: pull the repo. --ff-only avoids surprise merge commits.
+# Oneshot service: pull the repo.
+#   --ff-only   avoids surprise merge commits.
+#   --autostash stashes any local scribbles before pulling and reapplies them
+#               after. Needed because htop rewrites ~/.config/htop/htoprc (a
+#               symlink into this repo) on exit, leaving the worktree dirty; a
+#               plain --ff-only pull would refuse to run on a dirty tree.
 cat > "$UNIT_DIR/gbin-pull.service" <<EOF
 [Unit]
 Description=Pull latest gbin
@@ -23,7 +28,7 @@ After=network-online.target
 [Service]
 Type=oneshot
 WorkingDirectory=$REPO
-ExecStart=$GIT pull --ff-only
+ExecStart=$GIT pull --ff-only --autostash
 EOF
 
 # Timer: run shortly after login and every hour after that.
