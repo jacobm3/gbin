@@ -3,6 +3,12 @@
 #    sc / scu / jc / scen / scdis / scl / sclu / sclt / sctd / scwh / scgr / scboot
 #  Run `schelp` for a colorized list of all of these.
 #  sc auto-adds sudo for mutating verbs. scu = --user. jc = journalctl.
+#  The list helpers (sclu / sclt / scl / scgr) show SYSTEM objects, then a separate
+#  "── user ──" section with your own per-user objects — pass --user (-u) for ONLY your
+#  user objects, or --sys (-s) for ONLY the system objects. The single-unit helpers take
+#  --user (-u) to target a user unit:
+#    sctd -u <t>   scwh -u <u>   scen --user <u>   scdis -u <u>   scboot --user
+#    (jc --user -u <u> for user-unit logs)
 #  Output is colorized k9s-style on a terminal (green=up, dim=off, red=bad);
 #  pipe or redirect any of them and the color drops out automatically.
 # ──────────────────────────────────────────────────────────────────────
@@ -16,7 +22,8 @@
 # scwh   = SystemCtl WHere                 — path of a unit file (+ override drop-ins)
 # scgr   = SystemCtl GRep                  — find units by name (loaded + on-disk)
 # scboot = SystemCtl BOOT                  — boot performance (systemd-analyze)
-# scu    = SystemCtl User                  — your own --user units (no sudo)
+# scu    = SystemCtl User                  — your own --user units (no sudo), colorized+paged
+#          (the list helpers already show user objects by default; -u = user-only)
 # scen   = SystemCtl ENable  (--now)       — enable + start in one shot
 # scdis  = SystemCtl DISable (--now)       — disable + stop in one shot
 # jc     = JournalCtl                      — logs
@@ -57,22 +64,32 @@
 #  sc reset-failed nginx        clear the "failed" flag after fixing it
 #
 #  -- list helpers (scl / sclu) ---------------------------------------
-#  sclu                         running services (the default)
-#  sclu -a                      ALL loaded services, any state (= list-units --all)
-#  sclu failed                  services in a specific state
-#  scl                          running units then active timers, one pager
-#  scl -a                       all loaded units + all timers (incl. dead)
+#  sclu                         system services, THEN a "── user ──" section of yours
+#  sclu -u                      ONLY your per-user services
+#  sclu -s                      ONLY the system services (no user section)
+#  sclu -a                      ALL loaded services, any state (system + user)
+#  sclu failed                  services in a specific state (system + user)
+#  scl                          system units+timers, then your user units+timers
+#  scl -a                       all loaded units + all timers (incl. dead), both scopes
+#  scl -u                       ONLY your user units + timers
+#  scl -s                       ONLY the system units + timers
 #
 #  -- timers (sclt / sctd) --------------------------------------------
-#  sclt                         active timers: next run, last run, target
-#  sclt -a   (or --all)         include inactive/dead timers too
-#  sctd certbot                 a timer's schedule + the unit it triggers
+#  sclt                         system timers, THEN a "── user ──" section of yours
+#  sclt -u                      ONLY your per-user timers
+#  sclt -s                      ONLY the system timers (no user section)
+#  sclt -a   (or --all)         include inactive/dead timers too (system + user)
+#  sctd certbot                 a system timer's schedule + the unit it triggers
+#  sctd -u mybackup             a USER timer's schedule + the unit it triggers
 #  sc cat certbot.timer         just the raw .timer unit (OnCalendar=…)
 #
 #  -- locating / finding unit files (scwh / scgr) ---------------------
 #  scwh nginx                   real path of the unit file + override drop-ins
+#  scwh -u syncthing            real path of one of YOUR user unit files
 #  sc cat nginx                 dump the unit file contents (+ drop-ins)
-#  scgr ssh                     find units (loaded + on-disk) matching a name
+#  scgr ssh                     find matches in system units, THEN in your user units
+#  scgr -u ssh                  find matches in ONLY your user units
+#  scgr -s ssh                  find matches in ONLY the system units
 #  sc list-unit-files           every installed unit + its enable state
 #  sc list-unit-files --type=timer    just the timers on disk
 #
@@ -93,10 +110,27 @@
 #  jc --disk-usage              how much space the journal eats
 #
 #  -- your own user services (scu, never needs sudo) ------------------
-#  scu status syncthing
+#  scu status syncthing         colorized + paged, just like `sc status`
 #  scu restart syncthing
-#  scu --user enable --now syncthing      (or just: scu enable --now …)
-#  systemctl --user daemon-reload         after editing ~/.config/systemd
+#  scu enable --now syncthing   (scu already implies --user; no need to repeat it)
+#  scu daemon-reload            after editing ~/.config/systemd/user/*.service
+#  scu list-timers              your user timers (or: sclt --user)
+#
+#  -- the rich helpers, --user style (your units only) ----------------
+#  the list helpers already append a "── user ──" section by default; add --user (-u)
+#  to drop the system section and show ONLY your units. the single-unit helpers take
+#  --user (-u) to target a user unit instead of a system one:
+#  sclu --user                  ONLY your user services (-a = all states)
+#  sclt -u                      ONLY your user timers: next/last run + target
+#  scl --user                   ONLY your user units + timers, one pager
+#  scgr -u sync                 search ONLY your user units (loaded + ~/.config)
+#  sctd -u mybackup             a user timer's schedule + the unit it runs
+#  scwh -u syncthing            path of a user unit file + its drop-ins
+#  scboot --user                user-session boot/start performance
+#  scen --user syncthing        enable + start a user unit (no sudo)
+#  scdis -u syncthing           disable + stop a user unit (no sudo)
+#  jc --user -u syncthing       logs for a user unit (from the user journal)
+#  jc --user -fu syncthing      follow a user unit's logs live
 #
 #  -- system power (auto-sudo via sc) ---------------------------------
 #  sc reboot     |   sc poweroff   |   sc suspend   |   sc hibernate
@@ -159,6 +193,14 @@ _sd_page() {
   if command -v less >/dev/null 2>&1; then less -FRSX; else cat; fi
 }
 
+# ── _sd_user_ok : is a --user systemd manager reachable? (internal) ───────
+# The list helpers now show system units AND your per-user units by default. But a
+# root login or a session with no user D-Bus bus has no --user manager — querying it
+# there just spews "Failed to connect to bus" to stderr. Probe once, quietly; callers
+# skip the user section when this returns non-zero. `show -p Version` is the cheapest
+# round-trip to the manager that succeeds iff it's actually answering.
+_sd_user_ok() { systemctl --user show -p Version >/dev/null 2>&1; }
+
 # systemctl colorizes itself, but ONLY when its stdout is a tty. When it spawns its
 # pager (less) the stdout is the pipe to less, so it drops color — that's why long
 # `sc status` / `sclu` output paged out plain. Force SYSTEMD_COLORS to match OUR real
@@ -185,121 +227,229 @@ sc() {
 # Color (c) and width (w) are decided by the public fn — its stdout is the real tty, so
 # `tput cols` and the color test are accurate before output is piped into _sd_page.
 
-# _sclu <color> <width> <all> [state] — colorized unit list, no pager.
+# _sclu <color> <width> <user> <all> [state] — colorized unit list, no pager.
+# <user>=1 → operate on the --user manager (your own units) instead of the system one.
 # <all>=1 → list-units --all (every loaded service, any state); else filter by [state]
 # (default running). systemctl only tints PROBLEM rows (failed/not-found) and leaves
 # healthy ones plain, so forcing SYSTEMD_COLORS buys nothing here. Reformat like scgr and
 # run through our own colorizer instead, so STATE is colored for every row (running=green,
 # dead=dim…).
 _sclu() {
-  local c=$1 w=$2 all=$3; shift 3
+  local c=$1 w=$2 user=$3 all=$4; shift 4
+  # Build the systemctl base, adding --user when asked. Using an array keeps the
+  # optional flag clean — no fragile string-splitting on a possibly-empty variable.
+  local -a sctl=(systemctl); (( user )) && sctl+=(--user)
   local -a sel
   (( all )) && sel=(--all) || sel=(--state="${1:-running}")
   { printf 'UNIT\tSTATE\tDESCRIPTION\n'
-    systemctl list-units --type=service "${sel[@]}" --no-legend |
+    "${sctl[@]}" list-units --type=service "${sel[@]}" --no-legend |
       awk '{ i=($1=="●")?2:1; d=""; for(j=i+4;j<=NF;j++) d=d (d?" ":"") $j
              printf "%s\t%s\t%s\n", $i, $(i+3), d }'
   } | column -t -s $'\t' | cut -c "1-$w" | _sd_paint "$c"
 }
 
-# _sclt <color> <width> [timer args…] — colorized timer list, no pager.
+# _sclt <color> <width> <user> [timer args…] — colorized timer list, no pager.
+# <user>=1 → list the --user manager's timers instead of the system ones.
 # Date columns hold spaces, so positional reformatting is unreliable; instead keep
 # systemctl's own layout, clip to the terminal width (piped output is a fixed 142 cols
 # wide and would otherwise wrap), and colorize — durations turn lavender, the header bold.
 _sclt() {
-  local c=$1 w=$2; shift 2
-  systemctl list-timers "$@" --no-pager | cut -c "1-$w" | _sd_paint "$c"
+  local c=$1 w=$2 user=$3; shift 3
+  local -a sctl=(systemctl); (( user )) && sctl+=(--user)
+  "${sctl[@]}" list-timers "$@" --no-pager | cut -c "1-$w" | _sd_paint "$c"
 }
 
 # sclu = SystemCtl List Units — services in a given state (default: running).
-# -a / --all → every loaded service regardless of state (maps to list-units --all).
+# By DEFAULT shows the system services, then a separate "── user ──" section with your
+# own per-user services (skipped if no user manager is reachable).
+# -a / --all  → every loaded service regardless of state (maps to list-units --all).
+# -u / --user → show ONLY your per-user services (drop the system section).
+# -s / --sys  → show ONLY the system services (drop the user section).
+# Flags may appear in either order (e.g. `sclu -a --user` or `sclu --sys failed`).
 sclu() {
-  local all=0; [[ $1 == -a || $1 == --all ]] && { all=1; shift; }
+  local all=0 user=0 sys=0
+  while [[ $1 == -a || $1 == --all || $1 == -u || $1 == --user || $1 == -s || $1 == --sys ]]; do
+    case $1 in -a|--all) all=1 ;; -u|--user) user=1 ;; -s|--sys) sys=1 ;; esac; shift
+  done
   local w=${COLUMNS:-$(tput cols 2>/dev/null || echo 120)} c=0; [[ -t 1 ]] && c=1
-  _sclu "$c" "$w" "$all" "$@" | _sd_page
+  {
+    if (( user )); then                          # user-only: just your units
+      _sclu "$c" "$w" 1 "$all" "$@"
+    elif (( ! sys )) && _sd_user_ok; then        # default: system, then user appended
+      printf '── system ──\n'
+      _sclu "$c" "$w" 0 "$all" "$@"
+      printf '\n── user ──\n'
+      _sclu "$c" "$w" 1 "$all" "$@"
+    else                                         # system-only (-s, or no user manager)
+      _sclu "$c" "$w" 0 "$all" "$@"
+    fi
+  } | _sd_page
 }
 
 # sclt = SystemCtl List Timers — every timer with its next/last run time.
-# -a / --all → include inactive/dead timers (maps to list-timers --all).
+# By DEFAULT shows the system timers, then a separate "── user ──" section with your
+# own per-user timers (skipped if no user manager is reachable).
+# -a / --all  → include inactive/dead timers (maps to list-timers --all).
+# -u / --user → show ONLY your per-user timers (drop the system section).
+# -s / --sys  → show ONLY the system timers (drop the user section).
 sclt() {
-  [[ $1 == -a ]] && set -- --all "${@:2}"
+  local user=0 all=0 sys=0
+  # Pop our flags off the front. -u/-s are OURS (consumed); -a/--all we re-add
+  # below as systemctl's own --all so it passes through to list-timers.
+  while [[ $1 == -a || $1 == --all || $1 == -u || $1 == --user || $1 == -s || $1 == --sys ]]; do
+    case $1 in -a|--all) all=1 ;; -u|--user) user=1 ;; -s|--sys) sys=1 ;; esac; shift
+  done
+  (( all )) && set -- --all "$@"
   local w=${COLUMNS:-$(tput cols 2>/dev/null || echo 120)} c=0; [[ -t 1 ]] && c=1
-  _sclt "$c" "$w" "$@" | _sd_page
+  {
+    if (( user )); then                          # user-only
+      _sclt "$c" "$w" 1 "$@"
+    elif (( ! sys )) && _sd_user_ok; then        # default: system, then user appended
+      printf '── system ──\n'
+      _sclt "$c" "$w" 0 "$@"
+      printf '\n── user ──\n'
+      _sclt "$c" "$w" 1 "$@"
+    else                                         # system-only (-s, or no user manager)
+      _sclt "$c" "$w" 0 "$@"
+    fi
+  } | _sd_page
 }
 
 # scl = SystemCtl List — units then timers in ONE paged buffer (any args filter units).
-# -a / --all → all loaded units (any state) + all timers (incl. dead).
+# By DEFAULT shows the full system group (units + timers), then a "── user ──" group
+# with your per-user units + timers (skipped if no user manager is reachable).
+# -a / --all  → all loaded units (any state) + all timers (incl. dead).
+# -u / --user → show ONLY your per-user units and timers (drop the system group).
+# -s / --sys  → show ONLY the system units and timers (drop the user group).
 scl() {
-  local all=0; [[ $1 == -a || $1 == --all ]] && { all=1; shift; }
+  local all=0 user=0 sys=0
+  while [[ $1 == -a || $1 == --all || $1 == -u || $1 == --user || $1 == -s || $1 == --sys ]]; do
+    case $1 in -a|--all) all=1 ;; -u|--user) user=1 ;; -s|--sys) sys=1 ;; esac; shift
+  done
   local w=${COLUMNS:-$(tput cols 2>/dev/null || echo 120)} c=0; [[ -t 1 ]] && c=1
   local -a tflag=(); (( all )) && tflag=(--all)
-  { _sclu "$c" "$w" "$all" "$@"; echo; _sclt "$c" "$w" "${tflag[@]}"; } | _sd_page
+  {
+    if (( user )); then                          # user-only group
+      _sclu "$c" "$w" 1 "$all" "$@"; echo; _sclt "$c" "$w" 1 "${tflag[@]}"
+    elif (( ! sys )) && _sd_user_ok; then        # default: whole system group, then user group
+      printf '── system ──\n'
+      _sclu "$c" "$w" 0 "$all" "$@"; echo; _sclt "$c" "$w" 0 "${tflag[@]}"
+      printf '\n── user ──\n'
+      _sclu "$c" "$w" 1 "$all" "$@"; echo; _sclt "$c" "$w" 1 "${tflag[@]}"
+    else                                         # system-only group (-s, or no user manager)
+      _sclu "$c" "$w" 0 "$all" "$@"; echo; _sclt "$c" "$w" 0 "${tflag[@]}"
+    fi
+  } | _sd_page
 }
 
 # sctd = SystemCtl Timer Detail — a timer's schedule AND the unit it activates.
-# Accepts "certbot" or "certbot.timer".
+# Accepts "certbot" or "certbot.timer". -u / --user → a per-user timer.
 sctd() {
+  local user=0; [[ $1 == -u || $1 == --user ]] && { user=1; shift; }
+  local -a sctl=(systemctl); (( user )) && sctl+=(--user)
   local t=$1 c=0; [[ -t 1 ]] && c=1
   [[ $t == *.timer ]] || t=$t.timer
   local svc
-  svc=$(systemctl show "$t" -p Unit --value 2>/dev/null)
+  svc=$("${sctl[@]}" show "$t" -p Unit --value 2>/dev/null)
   [[ -z $svc ]] && svc=${t%.timer}.service
   {
-    systemctl cat "$t" || return
+    "${sctl[@]}" cat "$t" || return
     printf '\n# ── activates: %s ──\n' "$svc"
-    systemctl cat "$svc"
+    "${sctl[@]}" cat "$svc"
   } | _sd_paint "$c" | _sd_page
 }
 
 # scwh = SystemCtl WHere — where does this unit live? real path + override drop-ins.
-scwh() { systemctl show "$1" -p FragmentPath -p DropInPaths --value | _sd_paint; }
+# -u / --user → look up a per-user unit (e.g. ~/.config/systemd/user/…).
+scwh() {
+  local user=0; [[ $1 == -u || $1 == --user ]] && { user=1; shift; }
+  local -a sctl=(systemctl); (( user )) && sctl+=(--user)
+  "${sctl[@]}" show "$1" -p FragmentPath -p DropInPaths --value | _sd_paint
+}
+
+# _scgr <width> <user> <pattern> — emit the loaded + on-disk matches (raw, no paint/page).
+# Split out of scgr so the public fn can run it once for the system manager and once for
+# the --user manager. <user>=1 → query the per-user manager.
+_scgr() {
+  local w=$1 user=$2 pat=$3
+  local -a sctl=(systemctl); (( user )) && sctl+=(--user)
+  # list-units cols: [●] NAME  LOAD  ACTIVE  SUB  DESCRIPTION…  — keep NAME, SUB, DESC.
+  echo "── loaded ──"
+  { printf 'UNIT\tSTATE\tDESCRIPTION\n'
+    "${sctl[@]}" list-units      --all --no-legend 2>/dev/null |
+      awk -v p="$pat" 'BEGIN{p=tolower(p)}
+        { i=($1=="●")?2:1; d=""; for(j=i+4;j<=NF;j++) d=d (d?" ":"") $j
+          if(tolower($i" "d) ~ p) printf "%s\t%s\t%s\n", $i, $(i+3), d }'
+  } | column -t -s $'\t' | cut -c "1-$w"
+
+  # list-unit-files cols: NAME  STATE  [PRESET] — only NAME is meaningful to search.
+  echo "── on disk ──"
+  { printf 'UNIT\tSTATE\n'
+    "${sctl[@]}" list-unit-files       --no-legend 2>/dev/null |
+      awk -v p="$pat" 'BEGIN{p=tolower(p)} tolower($1) ~ p { printf "%s\t%s\n", $1, $2 }'
+  } | column -t -s $'\t' | cut -c "1-$w"
+}
 
 # scgr = SystemCtl GRep — find units by name or description, NOT by the enum state
 # columns (loaded/active/waiting/enabled/…), both loaded in memory and on disk.
 # Case-insensitive substring, like grep -i. Output is re-tabulated and clipped to the
 # terminal width — systemctl pads to the longest unit name systemwide when piped,
 # which otherwise wraps and looks unaligned.
+# By DEFAULT searches system units, then a "── user units ──" group for your per-user
+# units. -u / --user → search ONLY your per-user units. -s / --sys → system units only.
 scgr() {
+  local user=0 sys=0
+  while [[ $1 == -u || $1 == --user || $1 == -s || $1 == --sys ]]; do
+    case $1 in -u|--user) user=1 ;; -s|--sys) sys=1 ;; esac; shift
+  done
   local w=${COLUMNS:-$(tput cols 2>/dev/null || echo 120)} c=0; [[ -t 1 ]] && c=1
   {
-    # list-units cols: [●] NAME  LOAD  ACTIVE  SUB  DESCRIPTION…  — keep NAME, SUB, DESC.
-    echo "── loaded ──"
-    { printf 'UNIT\tSTATE\tDESCRIPTION\n'
-      systemctl list-units      --all --no-legend |
-        awk -v p="$1" 'BEGIN{p=tolower(p)}
-          { i=($1=="●")?2:1; d=""; for(j=i+4;j<=NF;j++) d=d (d?" ":"") $j
-            if(tolower($i" "d) ~ p) printf "%s\t%s\t%s\n", $i, $(i+3), d }'
-    } | column -t -s $'\t' | cut -c "1-$w"
-
-    # list-unit-files cols: NAME  STATE  [PRESET] — only NAME is meaningful to search.
-    echo "── on disk ──"
-    { printf 'UNIT\tSTATE\n'
-      systemctl list-unit-files       --no-legend |
-        awk -v p="$1" 'BEGIN{p=tolower(p)} tolower($1) ~ p { printf "%s\t%s\n", $1, $2 }'
-    } | column -t -s $'\t' | cut -c "1-$w"
+    if (( user )); then                          # user-only
+      _scgr "$w" 1 "$1"
+    elif (( ! sys )) && _sd_user_ok; then        # default: system units, then user units
+      echo "── system units ──"; _scgr "$w" 0 "$1"
+      printf '\n── user units ──\n'; _scgr "$w" 1 "$1"
+    else                                         # system-only (-s, or no user manager)
+      _scgr "$w" 0 "$1"
+    fi
   } | _sd_paint "$c" | _sd_page
 }
 
 # scboot = SystemCtl BOOT — boot performance via systemd-analyze (default: blame).
+# -u / --user → analyze your user session's manager instead of the system one.
 scboot() {
+  local user=0; [[ $1 == -u || $1 == --user ]] && { user=1; shift; }
+  local -a sa=(systemd-analyze); (( user )) && sa+=(--user)
   local c=0; [[ -t 1 ]] && c=1
   case "$1" in
-    chain) systemd-analyze critical-chain ;;
-    time)  systemd-analyze time ;;
-    *)     systemd-analyze blame ;;
+    chain) "${sa[@]}" critical-chain ;;
+    time)  "${sa[@]}" time ;;
+    *)     "${sa[@]}" blame ;;
   esac | _sd_paint "$c" nostate | _sd_page
 }
 
 # scu = SystemCtl User — operate on your own --user units (never needs sudo).
-scu() { systemctl --user "$@"; }
-# jc = JournalCtl — the log reader.
+# Mirrors `sc`: forces SYSTEMD_COLORS to our real tty so status/cat stay colorized
+# through the pager, and 0 when piped/redirected so no escape codes leak.
+scu() {
+  local c=0; [[ -t 1 ]] && c=1
+  SYSTEMD_COLORS=$c systemctl --user "$@"
+}
+# jc = JournalCtl — the log reader. For user-unit logs: `jc --user -u <unit>`
+# (journalctl --user reads your per-user journal); --user passes straight through.
 jc()  { journalctl "$@"; }
 
-# the two-step savers, as their own verbs
+# the two-step savers, as their own verbs.  -u / --user → act on a user unit (no sudo).
 # scen  = SystemCtl ENable  (--now) — enable + start in one shot.
-scen() { (( EUID )) && sudo systemctl enable  --now "$@" || systemctl enable  --now "$@"; }
+scen() {
+  [[ $1 == -u || $1 == --user ]] && { shift; systemctl --user enable --now "$@"; return; }
+  (( EUID )) && sudo systemctl enable  --now "$@" || systemctl enable  --now "$@"
+}
 # scdis = SystemCtl DISable (--now) — disable + stop in one shot.
-scdis(){ (( EUID )) && sudo systemctl disable --now "$@" || systemctl disable --now "$@"; }
+scdis(){
+  [[ $1 == -u || $1 == --user ]] && { shift; systemctl --user disable --now "$@"; return; }
+  (( EUID )) && sudo systemctl disable --now "$@" || systemctl disable --now "$@"
+}
 
 # schelp = SystemCtl HELP — print the list of helpers defined here, aligned and paged.
 # Self-contained coloring (bold command name) — not _sd_paint, whose state-word
@@ -311,19 +461,20 @@ schelp() {
     printf '%s\n\n' "${b}── systemd helpers ──${n}  (sc auto-sudoes mutating verbs; lists are colored & paged)"
     { printf 'COMMAND\tMNEMONIC\tWHAT IT DOES\n'
       printf 'sc\tSystemCtl\twrapper: sc status|start|stop|restart|enable|cat|edit <unit>\n'
-      printf 'scl\tSC List\t[-a] units (running) then timers, back to back\n'
-      printf 'sclu\tSC List-Units\t[-a|state] services in a state (default running), colored\n'
-      printf 'sclt\tSC List-Timers\t[-a] timers: next/last run + what they activate\n'
-      printf 'sctd\tSC Timer-Detail\t<timer> its schedule + the unit it triggers\n'
-      printf 'scwh\tSC WHere\t<unit> path of the unit file + override drop-ins\n'
-      printf 'scgr\tSC GRep\t<pattern> find units by name/description (loaded + on disk)\n'
-      printf 'scboot\tSC BOOT\t[chain|time] boot performance (systemd-analyze)\n'
-      printf 'scu\tSC User\t<verb> operate on your --user units (never sudo)\n'
-      printf 'scen\tSC ENable\t<unit> enable + start in one shot (--now)\n'
-      printf 'scdis\tSC DISable\t<unit> disable + stop in one shot (--now)\n'
-      printf 'jc\tJournalCtl\tsystem/service logs (journalctl) — flags in the jc section below\n'
+      printf 'scl\tSC List\t[-a][-u] system units+timers, then a user section\n'
+      printf 'sclu\tSC List-Units\t[-a|state][-u] system services, then a user section (def running)\n'
+      printf 'sclt\tSC List-Timers\t[-a][-u] system timers, then a user section: next/last run\n'
+      printf 'sctd\tSC Timer-Detail\t[-u] <timer> its schedule + the unit it triggers\n'
+      printf 'scwh\tSC WHere\t[-u] <unit> path of the unit file + override drop-ins\n'
+      printf 'scgr\tSC GRep\t[-u] <pattern> find system then user units (loaded + on disk)\n'
+      printf 'scboot\tSC BOOT\t[-u][chain|time] boot performance (systemd-analyze)\n'
+      printf 'scu\tSC User\t<verb> operate on your --user units (never sudo), colored+paged\n'
+      printf 'scen\tSC ENable\t[-u] <unit> enable + start in one shot (--now)\n'
+      printf 'scdis\tSC DISable\t[-u] <unit> disable + stop in one shot (--now)\n'
+      printf 'jc\tJournalCtl\tsystem/service logs (journalctl); jc --user -u <unit> for user logs\n'
       printf 'schelp\tSC HELP\tthis reference (alias: sch)\n'
     } | column -t -s $'\t' | sed -E "s/^([^[:space:]]+)/${b}\\1${n}/"
+    printf '%s\n' "  (list helpers append a user section by default; -u/--user = user-only, -s/--sys = system-only)"
 
     printf '\n%s\n' "${b}── journalctl (jc) ──${n}  (prefix each with 'jc'; add -u <unit> to scope to one unit)"
     { printf 'FLAGS\tWHAT IT DOES\n'
@@ -347,8 +498,9 @@ schelp() {
 }
 sch() { schelp "$@"; }   # short alias for schelp
 
-# function tab completion 
+# function tab completion
 source /usr/share/bash-completion/completions/systemctl 2>/dev/null
-complete -F _systemctl sc
+# sc and scu both take unit names as args, so reuse systemctl's completer for both.
+complete -F _systemctl sc scu
 source /usr/share/bash-completion/completions/journalctl 2>/dev/null
 complete -F _journalctl jc
