@@ -53,6 +53,14 @@ detect_profile() {
 }
 
 PROFILE="$(detect_profile)"
+
+# `--print-profile`: just report the resolved profile and exit (used by the
+# new-machine installer to seed ~/.gbin-profile). Does no linking.
+if [ "${1:-}" = "--print-profile" ]; then
+  echo "$PROFILE"
+  exit 0
+fi
+
 echo "link-dotfiles: profile = $PROFILE"
 
 # --- helpers -----------------------------------------------------------------
