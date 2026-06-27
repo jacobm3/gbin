@@ -33,6 +33,7 @@ pciutils \
 pwgen \
 rclone \
 restic \
+scrub \
 signal-desktop \
 smartmontools \
 unzip \

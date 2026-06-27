@@ -25,6 +25,7 @@ pwgen \
 rclone \
 restic \
 ripgrep \
+scrub \
 smartmontools \
 ugrep \
 unzip \
