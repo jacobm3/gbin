@@ -1,0 +1,18 @@
+#!/bin/sh
+# Print host:absolute-path for a file, the form scp/sftp/rsync want
+# to reference it from another machine. Errors if the file doesn't exist.
+# Default uses the bare hostname; -t uses the Tailscale MagicDNS name.
+use_tailnet=0
+[ "$1" = "-t" ] && { use_tailnet=1; shift; }
+
+[ -z "$1" ] && { echo "usage: $(basename "$0") [-t] FILE" >&2; exit 1; }
+path=$(realpath -e "$1") || exit 1   # -e: fail if path doesn't exist
+
+if [ "$use_tailnet" = 1 ]; then
+    # Tailscale MagicDNS name (resolvable from any tailnet machine).
+    host=$(tailscale status --json 2>/dev/null \
+           | sed -n 's/.*"DNSName": "\([^"]*\)\..*/\1/p' | head -n1)
+fi
+[ -z "$host" ] && host=$(hostname -s)
+
+printf '%s:%s\n' "$host" "$path"

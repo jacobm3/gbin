@@ -1,0 +1,65 @@
+#!/bin/sh
+# Print the web URL for a file in a git repo, pointing at its remote origin
+# (Gitea or GitHub). Useful for sharing a precise link to a tracked file.
+#
+# Usage: gitref [-r REMOTE] [-c] FILE
+#   -r REMOTE   which git remote to use (default: origin)
+#   -c          pin to the current commit SHA instead of the branch name
+#               (precise/immutable; branch links move as the branch advances)
+
+remote=origin
+use_commit=0
+while [ "$1" != "${1#-}" ]; do          # loop while $1 starts with '-'
+    case "$1" in
+        -r) remote=$2; shift 2 ;;
+        -c) use_commit=1; shift ;;
+        *) echo "unknown option: $1" >&2; exit 1 ;;
+    esac
+done
+
+[ -z "$1" ] && { echo "usage: $(basename "$0") [-r REMOTE] [-c] FILE" >&2; exit 1; }
+
+# Resolve the file and confirm it's inside a git work tree.
+abs=$(realpath -e "$1") || exit 1
+root=$(cd "$(dirname "$abs")" && git rev-parse --show-toplevel 2>/dev/null) \
+    || { echo "not a git repo: $1" >&2; exit 1; }
+relpath=${abs#"$root"/}                  # path of file relative to repo root
+
+# Get the remote URL and normalize ssh/scp/https forms down to host + owner/repo.
+url=$(git -C "$root" remote get-url "$remote" 2>/dev/null) \
+    || { echo "no such remote: $remote" >&2; exit 1; }
+url=${url#ssh://}; url=${url#https://}; url=${url#http://}; url=${url#git://}
+url=${url#*@}                            # drop any leading user@ (e.g. git@)
+url=${url%.git}                          # drop trailing .git
+
+case "$url" in
+    *:*)                                 # has a colon: ssh-with-port or scp form
+        host=${url%%:*}
+        rest=${url#*:}
+        case "$rest" in
+            [0-9]*/*) path=${rest#*/} ;; # "port/owner/repo" -> strip the port
+            *) path=$rest ;;             # scp form "owner/repo"
+        esac ;;
+    *)                                   # plain https "host/owner/repo"
+        host=${url%%/*}
+        path=${url#*/} ;;
+esac
+
+# Choose the ref to use: a commit SHA (immutable) or the current branch name.
+if [ "$use_commit" = 1 ]; then
+    ref=$(git -C "$root" rev-parse HEAD)
+    refkind=commit
+else
+    ref=$(git -C "$root" rev-parse --abbrev-ref HEAD)
+    refkind=branch
+fi
+
+# GitHub and Gitea use different path layouts for viewing a file.
+case "$host" in
+    github.com|*.github.com)
+        # GitHub: /owner/repo/blob/<ref>/<path>  (same path for branch or sha)
+        echo "https://$host/$path/blob/$ref/$relpath" ;;
+    *)
+        # Gitea: /owner/repo/src/branch|commit/<ref>/<path>
+        echo "https://$host/$path/src/$refkind/$ref/$relpath" ;;
+esac
