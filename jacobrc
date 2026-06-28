@@ -170,7 +170,7 @@ alias tfdaa='time terraform apply -destroy -auto-approve | tee apply.out'
 alias tfp='time terraform plan'
 alias tfs='terraform show .tf.plan.out | egrep -i " resource|region|zone |name|plan:"'
 alias tm=tmsu
-alias ts='tailscale'
+# `ts` is a colorized tailscale wrapper, defined in linux/tailscale/tailscale-functions.sh (sourced below)
 if command -v nvim &>/dev/null; then alias v='nvim'; elif command -v vim &>/dev/null; then alias v='vim'; else alias v='vi'; fi
 alias venv='python3 -m venv '
 alias y='yara'
@@ -253,6 +253,9 @@ if [ -e /usr/share/bash-completion/completions/zfs ]; then . /usr/share/bash-com
 
 # custom tailscale completion
 . ~/gbin/shell/complete_tailscale
+
+# colorized `ts` wrapper for the tailscale CLI
+. ~/gbin/linux/tailscale/tailscale-functions.sh
 
 # load the bash-completion library; complete_alias relies on its
 # _command_offset and _completion_loader functions for the actual completion
