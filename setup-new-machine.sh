@@ -15,9 +15,19 @@
 #   --push-machine   also point `origin` at both gitea (ssh) and github (https)
 #                    so a single `git push` updates both remotes.
 #
+# WORK MACHINES (no access to the home tailnet or anything on it):
+#   --work   skip every step that depends on home-tailnet resources, namely:
+#              - the hourly gbin-pull timer (it pulls from gitea over the tailnet)
+#              - the Claude Code setup       (its qmd MCP lives on the tailnet, and
+#                                             we don't run Claude on work boxes anyway)
+#            Everything else (git config, hooks, bashrc, dotfiles) still runs, so
+#            you get the shell environment without reaching the home network.
+#            On a work box you typically clone from github, e.g.:
+#              git clone https://github.com/jacobm3/gbin.git ~/gbin
+#
 # USAGE
 #   git clone ssh://git@gitea.mink-neon.ts.net:2222/jacobm3/gbin.git ~/gbin
-#   cd ~/gbin && ./setup-new-machine.sh            # or: ./setup-new-machine.sh --push-machine
+#   cd ~/gbin && ./setup-new-machine.sh            # or: --push-machine, or --work
 #
 # Note: we deliberately do NOT use `set -e` — if one step fails we want to keep
 # going and report a summary at the end rather than abort the whole install.
@@ -25,9 +35,11 @@ set -uo pipefail
 
 # --- parse args --------------------------------------------------------------
 PUSH_MACHINE=0
+WORK_MACHINE=0   # --work: skip steps that need the home tailnet (pull timer, claude)
 for a in "$@"; do
   case "$a" in
     --push-machine) PUSH_MACHINE=1 ;;
+    --work)         WORK_MACHINE=1 ;;
     *) echo "setup-new-machine: unknown option '$a'" >&2; exit 2 ;;
   esac
 done
@@ -96,12 +108,26 @@ run_step "machine profile" ensure_profile
 run_step "link dotfiles" bash "$REPO/linux/link-dotfiles.sh"
 
 # --- 6. install hourly gbin-pull timer ---------------------------------------
-run_step "gbin-pull timer" bash "$REPO/git/install-gbin-pull-timer.sh"
+# The timer pulls from the gitea remote, which only exists on the home tailnet,
+# so skip it on work machines (you'll update gbin manually with `git pull`).
+if [ "$WORK_MACHINE" -eq 1 ]; then
+  echo
+  echo "==> gbin-pull timer: skipped (--work, no home tailnet). Update with 'git -C ~/gbin pull'."
+else
+  run_step "gbin-pull timer" bash "$REPO/git/install-gbin-pull-timer.sh"
+fi
 
 # --- 7. configure Claude Code (shared CLAUDE.md import, qmd MCP, statusline) --
 # Idempotent; the qmd/statusline parts self-skip if the `claude` CLI is absent,
-# so this is safe on gbin boxes that don't run Claude Code.
-run_step "claude code setup" bash "$REPO/claude/setup-claude.sh"
+# so this is safe on gbin boxes that don't run Claude Code. Skipped entirely on
+# work machines: its qmd MCP lives on the home tailnet, and we don't run Claude
+# there (only the approved work tooling).
+if [ "$WORK_MACHINE" -eq 1 ]; then
+  echo
+  echo "==> claude code setup: skipped (--work, no Claude on work machines)."
+else
+  run_step "claude code setup" bash "$REPO/claude/setup-claude.sh"
+fi
 
 # --- OPTIONAL: dual-remote push (push machines only) -------------------------
 # Make `origin` fetch from gitea (ssh) and push to BOTH gitea and github, so one
