@@ -92,6 +92,9 @@ link_variant() {
 # shared (identical everywhere):
 link_shared "jacobrc"                    "$HOME/.jacobrc"
 link_shared "linux/dotfiles/digrc" "$HOME/.digrc"
+# btop: same config everywhere — the clock_format uses btop's /host token so the
+# hostname (plus YY-MM-DD date + time) renders per-machine at runtime.
+link_shared "linux/dotfiles/btop.conf" "$HOME/.config/btop/btop.conf"
 
 # machine-specific (one variant per profile):
 link_variant "htoprc" "$HOME/.config/htop/htoprc"
