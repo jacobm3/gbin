@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
 # setup-claude.sh — configure Claude Code on THIS machine from gbin.
 #
-# Idempotent — safe to re-run. Does three things:
+# Idempotent — safe to re-run. Does four things:
 #   1. Make ~/.claude/CLAUDE.md import the shared instructions
 #      (@~/gbin/claude/CLAUDE-shared.md) so every project on this box gets the
 #      same global guidance (incl. the qmd recall/save memory rules).
 #   2. Register the shared qmd memory MCP server   (qmd/setup).
 #   3. Install the status line                      (install-statusline.sh).
+#   4. Disable fullscreen-TUI mouse click/drag capture so native terminal
+#      drag-to-select-and-copy works (settings.json env, wheel-scroll kept).
 #
-# Steps 2 and 3 only run if the `claude` CLI is installed — a gbin box without
+# Steps 2-4 only run if the `claude` CLI is installed — a gbin box without
 # Claude Code still gets the CLAUDE.md import (harmless) and skips the rest
 # cleanly instead of erroring.
 #
@@ -74,6 +76,41 @@ bash "$REPO/qmd/setup" || note_fail "qmd MCP setup"
 echo
 echo "==> Claude status line"
 bash "$SCRIPT_DIR/install-statusline.sh" || note_fail "statusline"
+
+# --- 4. disable fullscreen-TUI mouse click/drag capture ----------------------
+# In fullscreen TUI mode Claude Code grabs mouse click/drag, which breaks the
+# terminal's native drag-to-select-and-copy. CLAUDE_CODE_DISABLE_MOUSE_CLICKS=1
+# hands click/drag back to the terminal (native selection works again) while
+# KEEPING in-app mouse-wheel scrolling. We set it via settings.json "env" so it
+# applies no matter which shell launches `claude`. To fully release the mouse
+# (also give wheel-scroll back to the terminal) use CLAUDE_CODE_DISABLE_MOUSE=1
+# instead. Idempotent: only writes when the value isn't already set.
+ensure_mouse_env() {
+  command -v python3 >/dev/null 2>&1 || { echo "    ! python3 not found" >&2; return 2; }
+  python3 - <<'PY'
+import json, os
+settings = os.path.expanduser("~/.claude/settings.json")
+os.makedirs(os.path.dirname(settings), exist_ok=True)
+try:
+    with open(settings, encoding="utf-8") as fh:
+        cfg = json.load(fh)
+except (FileNotFoundError, json.JSONDecodeError):
+    cfg = {}
+env = cfg.setdefault("env", {})
+if env.get("CLAUDE_CODE_DISABLE_MOUSE_CLICKS") == "1":
+    print(f"    = mouse-click capture already disabled ({settings})")
+else:
+    env["CLAUDE_CODE_DISABLE_MOUSE_CLICKS"] = "1"
+    with open(settings, "w", encoding="utf-8") as fh:
+        json.dump(cfg, fh, indent=2)
+        fh.write("\n")
+    print(f"    + disabled mouse-click capture ({settings})")
+PY
+}
+
+echo
+echo "==> Claude mouse-click capture (disable)"
+ensure_mouse_env || note_fail "mouse env"
 
 # --- summary -----------------------------------------------------------------
 echo

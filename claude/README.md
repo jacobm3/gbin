@@ -26,18 +26,23 @@ below the import, where they can override the shared content.
 
 ## `setup-claude.sh` — configure this machine
 
-Idempotent, safe to re-run. Does three things:
+Idempotent, safe to re-run. Does four things:
 
 1. Ensures `~/.claude/CLAUDE.md` imports `CLAUDE-shared.md` as its first line
    (prepended to any existing file, leaving the rest untouched).
 2. Registers the shared qmd memory MCP server (`qmd/setup`).
 3. Installs the status line (`install-statusline.sh`).
+4. Disables fullscreen-TUI mouse **click/drag** capture by setting
+   `CLAUDE_CODE_DISABLE_MOUSE_CLICKS=1` in `settings.json`'s `env` block, so the
+   terminal's native drag-to-select-and-copy works again. In-app mouse-wheel
+   scrolling is kept. To fully release the mouse (give wheel-scroll back to the
+   terminal too), use `CLAUDE_CODE_DISABLE_MOUSE=1` instead.
 
 ```sh
 ~/gbin/claude/setup-claude.sh
 ```
 
-Steps 2–3 only run if the `claude` CLI is present; a box without Claude Code
+Steps 2–4 only run if the `claude` CLI is present; a box without Claude Code
 still gets the harmless CLAUDE.md import and skips the rest cleanly. Called
 automatically by `../setup-new-machine.sh`, but fine to run on its own.
 
