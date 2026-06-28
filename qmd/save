@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# Save a markdown memory file to the shared qmd corpus (jacobm3/qmd-corpus).
+# Reads the file BODY from stdin, writes it to <relpath> in the corpus repo,
+# commits, and pushes. The qmd service reindexes within ~5 min, after which
+# it's searchable from any machine via the 'qmd' MCP server.
+#
+# Usage:
+#   qmd/save systems/foo.md <<'MD'
+#   # Foo
+#   ...markdown...
+#   MD
+#
+# Folders (one topic per file): projects/  systems/  runbooks/  reference/
+# Auth: uses your normal git/SSH access to gitea (same as the gbin repo). No
+# secrets stored here.
+set -euo pipefail
+
+REL="${1:-}"
+if [ -z "$REL" ]; then
+  echo "usage: $(basename "$0") <folder>/<slug>.md   (markdown body on stdin)" >&2
+  exit 1
+fi
+# Reject anything that could escape the corpus tree
+case "$REL" in
+  /*|*..*) echo "ERROR: path must be relative and contain no '..'" >&2; exit 1 ;;
+  *.md) : ;;
+  *) echo "ERROR: path must end in .md" >&2; exit 1 ;;
+esac
+
+CORPUS_DIR="${QMD_CORPUS_DIR:-$HOME/.cache/qmd/corpus}"
+CORPUS_URL="${QMD_CORPUS_URL:-ssh://git@gitea.mink-neon.ts.net:2222/jacobm3/qmd-corpus.git}"
+
+# Read the body before touching git, so an empty save fails cleanly.
+BODY="$(cat)"
+if [ -z "${BODY//[$' \t\n']/}" ]; then
+  echo "ERROR: no content on stdin" >&2
+  exit 1
+fi
+
+# Clone the corpus on first use; refresh it on every run.
+if [ ! -d "$CORPUS_DIR/.git" ]; then
+  echo "==> First run: cloning corpus to $CORPUS_DIR"
+  mkdir -p "$(dirname "$CORPUS_DIR")"
+  git clone -q "$CORPUS_URL" "$CORPUS_DIR"
+fi
+cd "$CORPUS_DIR"
+git pull -q --ff-only || git pull -q --rebase
+
+# Write the file (creates the folder if new).
+mkdir -p "$(dirname "$REL")"
+printf '%s\n' "$BODY" > "$REL"
+
+git add "$REL"
+if git diff --cached --quiet; then
+  echo "No change to $REL (corpus already had this content)."
+  exit 0
+fi
+git commit -q -m "memory: $REL"
+# Push; retry once if someone else pushed in between.
+if ! git push -q 2>/dev/null; then
+  git pull -q --rebase && git push -q
+fi
+echo "Saved $REL -> corpus. Searchable within ~5 min."

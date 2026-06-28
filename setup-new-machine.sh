@@ -8,6 +8,8 @@
 #   4. create ~/.gbin-profile if missing            (machine type for dotfile variants)
 #   5. symlink dotfiles into $HOME                  (linux/link-dotfiles.sh)
 #   6. install the hourly gbin-pull timer           (git/install-gbin-pull-timer.sh)
+#   7. configure Claude Code: shared CLAUDE.md import + qmd MCP + statusline
+#                                                    (claude/setup-claude.sh)
 #
 # OPTIONAL (only on a machine you PUSH from, not consume-only boxes):
 #   --push-machine   also point `origin` at both gitea (ssh) and github (https)
@@ -95,6 +97,11 @@ run_step "link dotfiles" bash "$REPO/linux/link-dotfiles.sh"
 
 # --- 6. install hourly gbin-pull timer ---------------------------------------
 run_step "gbin-pull timer" bash "$REPO/git/install-gbin-pull-timer.sh"
+
+# --- 7. configure Claude Code (shared CLAUDE.md import, qmd MCP, statusline) --
+# Idempotent; the qmd/statusline parts self-skip if the `claude` CLI is absent,
+# so this is safe on gbin boxes that don't run Claude Code.
+run_step "claude code setup" bash "$REPO/claude/setup-claude.sh"
 
 # --- OPTIONAL: dual-remote push (push machines only) -------------------------
 # Make `origin` fetch from gitea (ssh) and push to BOTH gitea and github, so one
