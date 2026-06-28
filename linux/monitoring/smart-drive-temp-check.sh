@@ -19,7 +19,7 @@ for drive in /dev/sd?; do
         curl -s \
             --form-string "token=$PUSHOVER_TOKEN" \
             --form-string "user=$PUSHOVER_USER" \
-            --form-string "title=Drive Temperature Alert" \
+            --form-string "title=[$(hostname -s)] Drive Temperature Alert" \
             --form-string "message=Drive $drive is at $temp C, exceeding the threshold of $TEMP_THRESHOLD C. Shutting down!" \
             https://api.pushover.net/1/messages.json
         echo "message=Drive $drive is at $temp C, exceeding the threshold of $TEMP_THRESHOLD C. Shutting down!" 

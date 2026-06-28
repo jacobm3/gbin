@@ -28,6 +28,9 @@ fi
 # Read multi-line input from STDIN and assign it to msg
 msg=$(cat)
 
+# Prefix the sending machine's hostname so you know where the message came from
+msg="[$(hostname -s)] $msg"
+
 curl -s \
 --form-string "token=${po_apptoken}" \
 --form-string "user=${po_userkey}" \

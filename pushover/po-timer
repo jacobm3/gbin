@@ -61,6 +61,9 @@ function should_notify {
 # Read multi-line input from STDIN and assign it to msg
 msg=$(cat)
 
+# Prefix the sending machine's hostname so you know where the message came from
+msg="[$(hostname -s)] $msg"
+
 if should_notify; then
 
     curl -s \
