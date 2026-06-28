@@ -11,7 +11,7 @@ Configuration via environment variables:
   THRESHOLD_GB   RAM threshold in GiB (RSS)      (default 4)
   DRY_RUN        1/true = log only, never kill   (default off)
   TERM_GRACE     seconds to wait after SIGTERM   (default 5)
-  LOG_FILE       timestamped log file to append  (default /var/log/chrome-tab-reaper/reaper.log)
+  LOG_FILE       timestamped log file to append  (default ~/.local/state/chrome-tab-reaper/reaper.log)
 """
 
 import datetime
@@ -25,7 +25,12 @@ THRESHOLD_GB = float(os.environ.get("THRESHOLD_GB", "4"))
 THRESHOLD_BYTES = int(THRESHOLD_GB * 1024 ** 3)
 DRY_RUN = os.environ.get("DRY_RUN", "").lower() in ("1", "true", "yes", "on")
 TERM_GRACE = float(os.environ.get("TERM_GRACE", "5"))
-LOG_FILE = os.environ.get("LOG_FILE", "/var/log/chrome-tab-reaper/reaper.log")
+# Default log path lives under the user's state dir; the systemd unit also sets
+# LOG_FILE explicitly. journald keeps its own copy of stdout regardless.
+LOG_FILE = os.environ.get(
+    "LOG_FILE",
+    os.path.expanduser("~/.local/state/chrome-tab-reaper/reaper.log"),
+)
 
 PAGE_SIZE = os.sysconf("SC_PAGE_SIZE")
 CHROME_HINTS = ("chrome", "chromium")
