@@ -12,11 +12,11 @@ A shared, cross-machine memory corpus is searchable via the `qmd` MCP server (to
 - **Recall first.** Before non-trivial work (touching a host/VM/CT, a service, infra, or a project with prior history), `query` qmd for relevant context instead of guessing or asking. The corpus folders are `projects/ systems/ runbooks/ reference/`.
 - **Save durable facts.** When you learn something worth keeping across sessions and machines — a host/network fact, a fix, a procedure, a decision and its reasoning — save it with `~/gbin/qmd/save <folder>/<slug>.md` (markdown body on stdin). One topic per file, descriptive H1 title, lead with the answer, use real names (hostnames, VMIDs, paths). Searchable within ~5 min.
 - **Don't save** secrets/credentials (the corpus is git-scanned), or things already living in a code repo or this CLAUDE.md. Instead store new secrets in vault.mink-neon.ts.net.
-- Setup on a new machine: `~/gbin/qmd/setup`. Tooling lives in `~/gbin/qmd/`; service runs in CT 130 on pve3 (`https://qmd.mink-neon.ts.net`).
+- Setup on a new machine: `~/gbin/qmd/setup`. Tooling lives in `~/gbin/qmd/`; service is reachable at `https://qmd.mink-neon.ts.net`.
 
 ## SSH to other machines
 - SSH keypair is `~/.ssh/id_ed25519` (private key only; no `.pub` checked in). Use it for key-based logins to other boxes on the network.
-- `~/.ssh/known_hosts` is hashed (`HashKnownHosts yes`), so host entries aren't human-readable — discover live hosts with `ip neigh`, `pvesh`, or a quick `nmap`/ping sweep of `10.0.0.0/24` instead of grepping known_hosts.
+- `~/.ssh/known_hosts` is hashed (`HashKnownHosts yes`), so host entries aren't human-readable — discover live hosts with `ip neigh` or a quick `nmap`/ping sweep of `10.0.0.0/24` instead of grepping known_hosts.
 - Assume key-based, non-interactive SSH should "just work" to other lab machines; if it doesn't, surface the auth error rather than retrying with passwords.
 
 ## Secrets access
@@ -39,8 +39,8 @@ A shared, cross-machine memory corpus is searchable via the `qmd` MCP server (to
 - **`cnp`** (shorthand for "commit and push"): when I say `cnp`, stage all current changes, commit them with a concise message describing what we just did, and push. Push to whatever the current repo's `origin` points at — don't assume gitea vs github; use the remote(s) actually configured for that repo. If `origin` pushes to multiple remotes, push to all of them.
 
 ## Working preferences
-- Prefer real verification: when you change something, check the actual running state (service status, `qm`/`pct` status, a curl/ping) rather than assuming success.
-- This is a single-user lab; it's fine to act without hand-holding on routine ops, but confirm anything that could take down networking, storage, or running guests.
+- Prefer real verification: when you change something, check the actual running state (service status, a curl/ping) rather than assuming success.
+- This is a single-user environment; it's fine to act without hand-holding on routine ops, but confirm anything that could take down networking or storage.
 
 ## Communication style
 - be direct and token efficient in your output
