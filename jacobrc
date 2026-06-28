@@ -184,6 +184,8 @@ alias xo='xdg-open'
 alias yt='yt-dlp'
 alias zkeys='zfs get keystatus  -t filesystem; echo; zfs get keystatus  -t volume'
 alias zles='zless'
+# use zstdless for zless if it's installed (handles .zst as well as .gz)
+command -v zstdless >/dev/null 2>&1 && alias zless='zstdless'
 alias zsomething='asdf'
 
 gpc () { git commit -am "$1"; git push; }
