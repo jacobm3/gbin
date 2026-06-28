@@ -10,6 +10,7 @@ urls=(
   "https://claude.ai/new"
   "https://www.perplexity.ai/"
   "https://app.slack.com/client/T094J7LD6/C062S6SMY4E"
+  "https://pve3.mink-neon.ts.net:8006/#v1:0:=node%2Fpve3:4:5::::::"
   "https://gitea.mink-neon.ts.net/"
 )
 
