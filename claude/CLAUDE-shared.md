@@ -31,6 +31,7 @@ A shared, cross-machine memory corpus is searchable via the `qmd` MCP server (to
 - **Save durable facts.** When you learn something worth keeping across sessions and machines — a host/network fact, a fix, a procedure, a decision and its reasoning — save it with `~/gbin/qmd/save <folder>/<slug>.md` (markdown body on stdin). One topic per file, descriptive H1 title, lead with the answer, use real names (hostnames, VMIDs, paths). Searchable within ~5 min.
 - **Don't save** secrets/credentials (the corpus is git-scanned), or things already living in a code repo or this CLAUDE.md. Instead store new secrets in vault.mink-neon.ts.net.
 - **Write URLs as clickable links** — bare `https://host/path` or `<https://host/path>` autolinks, not inside backticks. The corpus is viewed in the gitea UI, where backtick code spans render as non-clickable text.
+- Secret-blocking is enforced two ways: `qmd/save` scans staged files with gitleaks, and a gitea **server-side pre-receive hook on every gitea repo rejects any push containing a secret** (global, can't be bypassed by `--no-verify`). Details/restore: qmd note `systems/qmd-corpus-secret-scanning.md`.
 - Setup on a new machine: `~/gbin/qmd/setup`. Tooling lives in `~/gbin/qmd/`; service is reachable at `https://qmd.mink-neon.ts.net`.
 
 
