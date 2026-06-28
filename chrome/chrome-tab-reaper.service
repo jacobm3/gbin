@@ -1,6 +1,6 @@
 [Unit]
 Description=Kill this user's Chrome/Chromium renderer tabs over a RAM threshold
-Documentation=https://github.com/jacobm3/gbin/tree/main/linux/chrome
+Documentation=https://github.com/jacobm3/gbin/tree/main/chrome
 
 [Service]
 Type=oneshot

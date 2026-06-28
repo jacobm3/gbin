@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -u
+
+urls=(
+  "https://gmail.com"
+  "https://mail.proton.me/u/8/inbox/"
+  "https://web.whatsapp.com/"
+  "https://messages.google.com/web/"
+  "https://chatgpt.com/"
+  "https://claude.ai/new"
+  "https://www.perplexity.ai/"
+  "https://app.slack.com/client/T094J7LD6/C062S6SMY4E"
+  "https://gitea.mink-neon.ts.net/"
+)
+
+# Wait for NetworkManager to report connectivity, then verify external HTTPS.
+deadline=$((SECONDS + 120))
+while (( SECONDS < deadline )); do
+  if nmcli -t -f CONNECTIVITY general status 2>/dev/null | grep -qx 'full' &&
+     curl --silent --head --fail --max-time 5 https://www.google.com/generate_204 >/dev/null; then
+    exec /usr/bin/google-chrome "${urls[@]}"
+  fi
+
+  sleep 2
+done
+
+# Do not fail forever if the connectivity probe is blocked by captive portals
+# or DNS filtering. Launch Chrome so the user can sign in or troubleshoot.
+exec /usr/bin/google-chrome "${urls[@]}"
