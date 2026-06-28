@@ -31,15 +31,24 @@ WorkingDirectory=$REPO
 ExecStart=$GIT pull --ff-only --autostash
 EOF
 
-# Timer: run shortly after login and every hour after that.
+# Timer: pull every hour on the wall clock.
+#   OnCalendar=hourly   fires at the top of each hour by wall-clock time, unlike
+#                       the monotonic OnUnitActiveSec= which pauses during
+#                       suspend (CLOCK_MONOTONIC stops), so on a laptop it would
+#                       almost never accumulate a full hour of uptime.
+#   Persistent=true     catches up with ONE run on resume/boot if we were asleep
+#                       across one or more hour marks. (Persistent= only has any
+#                       effect with OnCalendar=, which is why it did nothing
+#                       alongside the old monotonic-only config.)
+#   RandomizedDelaySec  jitters the fire so all machines don't hammer gitea at :00.
 cat > "$UNIT_DIR/gbin-pull.timer" <<EOF
 [Unit]
 Description=Pull latest gbin hourly
 
 [Timer]
-OnStartupSec=2min
-OnUnitActiveSec=1h
+OnCalendar=hourly
 Persistent=true
+RandomizedDelaySec=5min
 
 [Install]
 WantedBy=timers.target
