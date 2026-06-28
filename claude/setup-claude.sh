@@ -27,10 +27,10 @@ FAILED=()
 note_fail() { echo "    FAILED: $1" >&2; FAILED+=("$1"); }
 
 # --- 1. ensure ~/.claude/CLAUDE.md imports the shared instructions ------------
-# Imports work anywhere in the file, so we just guarantee the line is present.
-# `grep -qxF` matches the whole line exactly, so we never add a duplicate. If
-# the file is new we create it with the import as the first line; if it already
-# exists with machine-specific content, we leave that untouched and only append.
+# We guarantee the import is the FIRST line, so the shared guidance loads before
+# any machine-specific content that overrides it. `grep -qxF` matches the whole
+# line exactly, so we never add a duplicate. If the file is new we create it with
+# just the import; if it already exists, we prepend the import and keep the rest.
 ensure_claude_import() {
   local import='@~/gbin/claude/CLAUDE-shared.md'
   local f="$HOME/.claude/CLAUDE.md"
@@ -40,9 +40,11 @@ ensure_claude_import() {
     return 0
   fi
   if [ -e "$f" ]; then
-    # Existing machine-specific CLAUDE.md: append the import line.
-    printf '%s\n' "$import" >> "$f"
-    echo "    appended import to existing ~/.claude/CLAUDE.md"
+    # Existing machine-specific CLAUDE.md: prepend the import as the first line,
+    # leaving the rest untouched. Write to a temp file then move into place.
+    local tmp="$f.tmp.$$"
+    { printf '%s\n\n' "$import"; cat "$f"; } > "$tmp" && mv "$tmp" "$f"
+    echo "    prepended import to existing ~/.claude/CLAUDE.md"
   else
     # Fresh box: create the file with just the import (machine-specific
     # context can be added below it later).
