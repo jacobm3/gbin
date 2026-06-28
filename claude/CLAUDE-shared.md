@@ -6,13 +6,34 @@ This file is imported by each machine's `~/.claude/CLAUDE.md` via the line
 hour. Put anything true on EVERY machine here; put machine-specific facts in
 that machine's own `~/.claude/CLAUDE.md`.
 
+## Local network & tailnet
+Two parallel name/address spaces cover the same machines. Know both, because which one works depends on where you're calling from (on-LAN vs. remote-over-tailscale).
+
+- **LAN:** subnet `10.0.0.0/24`, gateway `10.0.0.1`. Local DNS server is `dns-01` at `10.0.0.53`, which serves the **`home.arpa`** zone (RFC 8375 home domain). LAN names look like `<host>.home.arpa` → `10.0.0.x`.
+- **Tailnet:** Tailscale MagicDNS domain **`mink-neon.ts.net`**. Tailnet names look like `<host>.mink-neon.ts.net` → a CGNAT `100.x.y.z` address. MagicDNS resolver is `100.100.100.100`. Works from any machine on the tailnet regardless of physical location.
+- **resolv.conf search order is `mink-neon.ts.net home.arpa`**, so a bare `<host>` usually resolves to the tailnet name first.
+- **Not every host exists in both spaces.** LAN-resident boxes (Proxmox host, VMs, bare-metal workstations) have *both* a `home.arpa` LAN entry and a tailnet name. Service containers fronted by `tailscale serve` (gitea, qmd, ntfy, monitoring, jellyfin) are **tailnet-only** — they have a `100.x`/`*.mink-neon.ts.net` name but **no** `home.arpa` LAN record. Don't assume a `home.arpa` name exists; verify with `getent hosts <host>.home.arpa`.
+- **Authoritative sources — don't keep a host list here.** The `home.arpa` LAN records come from dnsmasq, backed by git at `https://gitea.mink-neon.ts.net/jacobm3/dnsmasq-config/src/branch/main/hosts/lan`. For tailnet names/IPs use `tailscale status`. For a one-off LAN lookup use `getent hosts <host>.home.arpa`.
+
+### Always give all four URL forms for a service
+Whenever you hand me a URL for a service on one of these machines, give **all four** variants (when they exist) so I can use whichever fits — on-LAN, over-tailscale, by-name, or by-raw-IP:
+1. `home.arpa` DNS name — e.g. `https://stingray.home.arpa:8080/`
+2. tailnet DNS name — e.g. `https://stingray.mink-neon.ts.net:8080/`
+3. LAN IP — e.g. `https://10.0.0.12:8080/`
+4. tailnet IP — e.g. `https://100.102.212.126:8080/`
+
+If the service is tailnet-only (no `home.arpa`/LAN entry), give the two tailnet forms and say the LAN forms don't exist rather than inventing them.
+
 ## Shared memory (qmd) — primary memory store
 A shared, cross-machine memory corpus is searchable via the `qmd` MCP server (tools: `query`, `get`, `multi_get`, `status`), backed by the gitea repo `jacobm3/qmd-corpus`. This is the **primary** place to store and recall durable knowledge — prefer it over the local per-machine `memory/` store for anything that isn't strictly throwaway working notes.
 
 - **Recall first.** Before non-trivial work (touching a host/VM/CT, a service, infra, or a project with prior history), `query` qmd for relevant context instead of guessing or asking. The corpus folders are `projects/ systems/ runbooks/ reference/`.
 - **Save durable facts.** When you learn something worth keeping across sessions and machines — a host/network fact, a fix, a procedure, a decision and its reasoning — save it with `~/gbin/qmd/save <folder>/<slug>.md` (markdown body on stdin). One topic per file, descriptive H1 title, lead with the answer, use real names (hostnames, VMIDs, paths). Searchable within ~5 min.
 - **Don't save** secrets/credentials (the corpus is git-scanned), or things already living in a code repo or this CLAUDE.md. Instead store new secrets in vault.mink-neon.ts.net.
+- **Write URLs as clickable links** — bare `https://host/path` or `<https://host/path>` autolinks, not inside backticks. The corpus is viewed in the gitea UI, where backtick code spans render as non-clickable text.
 - Setup on a new machine: `~/gbin/qmd/setup`. Tooling lives in `~/gbin/qmd/`; service is reachable at `https://qmd.mink-neon.ts.net`.
+
+
 
 ## SSH to other machines
 - SSH keypair is `~/.ssh/id_ed25519` (private key only; no `.pub` checked in). Use it for key-based logins to other boxes on the network.
