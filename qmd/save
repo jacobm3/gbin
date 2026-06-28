@@ -55,6 +55,26 @@ if git diff --cached --quiet; then
   echo "No change to $REL (corpus already had this content)."
   exit 0
 fi
+
+# Secret scan: block the save if gitleaks finds a credential in the staged file.
+# The corpus is shared and git-scanned, so secrets must never land here. This is
+# fast local feedback; the gitea server-side pre-receive hook is the hard gate.
+# Set QMD_SKIP_GITLEAKS=1 to bypass (discouraged).
+if [ "${QMD_SKIP_GITLEAKS:-0}" != "1" ]; then
+  if command -v gitleaks >/dev/null 2>&1; then
+    if ! gitleaks git --staged --redact --no-banner >/dev/null 2>&1; then
+      echo "ERROR: gitleaks detected a possible secret in $REL — not committing." >&2
+      echo "       Remove the secret (store it in vault instead) and retry." >&2
+      echo "       To bypass (discouraged): QMD_SKIP_GITLEAKS=1 qmd/save ..." >&2
+      git restore --staged "$REL" 2>/dev/null || git reset -q HEAD "$REL"
+      exit 1
+    fi
+  else
+    echo "WARNING: gitleaks not installed — skipping local secret scan." >&2
+    echo "         Install it (or rely on the gitea server-side hook) to catch secrets." >&2
+  fi
+fi
+
 git commit -q -m "memory: $REL"
 # Push; retry once if someone else pushed in between.
 if ! git push -q 2>/dev/null; then
