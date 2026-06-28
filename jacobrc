@@ -43,7 +43,11 @@ PROMPT_COMMAND='printf "\033[5 q"'
 #bind '"\C-i":complete'  # if tab complete doesn't work
 set -o vi
 ls --color=auto &>/dev/null; if [ 0 -eq 0 ]; then alias ls='ls --color=auto' lh='ls -lh' lha='ls -lha' lhtr='ls -lhtr'; fi;
-export EDITOR=vim PAGER=less LESS='-SRFX'
+# LESS flags: -S chop long lines, -R raw color, -F quit if it fits one screen.
+# Dropped -X (was '-SRFX'): -X disables less's alternate screen, which left the
+# terminal in application-cursor-key mode on exit -> trackpad scroll turned into
+# bash history up/down. Without -X, less restores the screen cleanly on quit.
+export EDITOR=vim PAGER=less LESS='-SRF'
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 
 alias ..='cd ..'
