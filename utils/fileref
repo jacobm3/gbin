@@ -2,17 +2,37 @@
 # Print host:absolute-path for a file, the form scp/sftp/rsync want
 # to reference it from another machine. Errors if the file doesn't exist.
 # Default uses the bare hostname; -t uses the Tailscale MagicDNS name.
+# Flag controlling which hostname form to print; 0 = bare hostname (default).
 use_tailnet=0
+# If the first argument is "-t", turn on tailnet mode and drop that argument
+# (shift) so $1 then refers to the FILE. The `&& { ...; }` runs only when the
+# test is true.
 [ "$1" = "-t" ] && { use_tailnet=1; shift; }
 
+# If no file argument remains (-z = empty string), print usage to stderr (>&2)
+# and exit with an error status.
 [ -z "$1" ] && { echo "usage: $(basename "$0") [-t] FILE" >&2; exit 1; }
+# Turn the file argument into a full absolute path. realpath -e fails (non-zero)
+# if the path doesn't exist; `|| exit 1` then aborts the script.
 path=$(realpath -e "$1") || exit 1   # -e: fail if path doesn't exist
 
 if [ "$use_tailnet" = 1 ]; then
     # Tailscale MagicDNS name (resolvable from any tailnet machine).
+    # `tailscale status --json` prints a big JSON blob; 2>/dev/null hides errors
+    # if tailscale isn't running. The sed pulls this machine's DNS name out:
+    #   -n                 : don't auto-print lines; only print what we ask
+    #   s/.../\1/p         : substitute, then print (p) only on lines that matched
+    #   .*"DNSName": "     : skip up to the DNSName field's opening quote
+    #   \([^"]*\)          : capture group 1 = everything up to the next quote/dot
+    #   \..*               : then a literal dot and the rest (the trailing domain)
+    #   \1                 : keep just the captured short name (before the dot)
+    # head -n1 keeps only the first match in case several lines match.
     host=$(tailscale status --json 2>/dev/null \
            | sed -n 's/.*"DNSName": "\([^"]*\)\..*/\1/p' | head -n1)
 fi
+# Fallback: if $host is still empty (tailnet not requested, or lookup failed),
+# use this machine's short hostname. -s = short name, without the domain part.
 [ -z "$host" ] && host=$(hostname -s)
 
+# Print the final "host:/absolute/path" reference, e.g. "mybox:/home/j/file".
 printf '%s:%s\n' "$host" "$path"

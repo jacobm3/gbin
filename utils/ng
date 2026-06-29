@@ -1,8 +1,32 @@
+# ng -- "netstat grep": show network connections/sockets whose lines match a
+# pattern, while always keeping netstat's header row so the columns make sense.
+#
+# What it does: runs `netstat -anp` (all sockets, numeric addresses, with the
+# owning program), prints the first line (the column header), then prints only
+# the lines matching the pattern you pass as the first argument.
+#
+# How to run it:
+#   ng <pattern>        e.g.  ng :443        ng sshd        ng LISTEN
+# (No shebang; run via `sh ng <pattern>` or make it executable. Needs sudo,
+#  which is invoked inside, so it may prompt for a password.)
+#
+# Prerequisites: netstat (from net-tools), egrep, sudo.
+
+# Build a unique temp filename. $$ is the current shell's process ID, so two
+# runs won't clash. The leading dot just makes it a hidden file in /tmp.
 tmpfile=/tmp/.grep.$$
+# Create/empty that file ('>' with no command truncates it to zero length).
 >$tmpfile
 
+# Capture the full netstat output into the temp file (needs root to see the
+# program name/PID for every socket, hence sudo).
+#   -a all sockets   -n numeric (no DNS/port-name lookups)   -p show program
 sudo netstat -anp > $tmpfile
+# Print line 1 only: the column header (Proto, Local Address, State, etc.).
 head -1 $tmpfile
+# Print every line that matches the user's pattern ($1). egrep = grep -E
+# (extended regular expressions).
 egrep $1 $tmpfile
 
+# Clean up the temp file.
 rm $tmpfile

@@ -9,12 +9,22 @@
 #
 # Empty days (e.g. the laptop was off) are skipped so ~/.logs doesn't fill
 # up with zero-byte files.
+#
+# PREREQUISITES: zstd must be installed (used to compress each day's file).
+# RISK: low — only reads the journal and writes files under ~/.logs.
+
+# Safer bash mode:
+#   -e          exit immediately if any command fails (don't blunder onward)
+#   -u          error on use of an unset variable (catches typos)
+#   -o pipefail a pipeline fails if ANY stage fails, not just the last one
 set -euo pipefail
 
 # systemd user services do NOT source ~/.bashrc, so brew/linuxbrew's PATH is
 # not present. Add the usual spots so we can find zstd wherever it lives.
 export PATH="$HOME/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 
+# Where the daily archives go. mkdir -p creates it if missing and is a no-op
+# if it already exists (so this is safe to run every day).
 LOGDIR="$HOME/.logs"
 mkdir -p "$LOGDIR"
 

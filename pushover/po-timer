@@ -1,5 +1,7 @@
 #!/bin/bash
 #
+# po-timer — like `po`, but rate-limited so it won't spam you.
+#
 # Send a message to pushover service, with notification frequency controls
 # so you can use this code in high frequency monitoring checks without
 # spamming your pushover inbox once a problem condition is detected.
@@ -7,49 +9,81 @@
 # Similar to Nagios notification_interval, but without Nagios overhead.
 #
 # Supports multi-line messages!
+#
+# HOW THE RATE LIMITING WORKS:
+#   Each successful send "touches" (updates the timestamp of) a small control
+#   file. Before sending, we check how long ago that file was last touched. If
+#   less than the interval has passed, we stay quiet. So even if a monitoring
+#   check runs every minute and keeps failing, you only get pinged once per
+#   interval (default 20 minutes).
+#
+# USAGE:
+#   echo "disk full" | po-timer            # default 20-minute quiet window
+#   echo "disk full" | po-timer 300        # custom 300-second (5 min) window
+#
+# PREREQUISITES: curl, and ~/.pushover.shell holding po_apptoken + po_userkey
+# (see the `po` script in this same folder for details).
 
-# source pushover secrets from external file
-# po_apptoken, po_userkey
+# Path to the file holding the secret Pushover tokens (sourced below).
 CREDS=~/.pushover.shell
 
-# Notification control file
+# This file's modification time is our "last time we notified" clock. We never
+# read its contents — only its timestamp matters.
 NOTIFY_FILE=~/.pushover.notif.control01
 
+# Default quiet window between notifications, in seconds. $[ ... ] is old bash
+# arithmetic syntax; 20 * 60 = 1200 seconds = 20 minutes.
 NOTIFY_INTERVAL_SECONDS=$[ 20 * 60 ]
 
+# If the caller passed a first argument ($1) that is a positive number, use it
+# as the interval instead. -n... wait: ! -z means "not empty", and -gt 0 means
+# "greater than zero", so this only overrides when given a real positive value.
 if [ ! -z "$1" ] && [ "$1" -gt 0 ]; then
   NOTIFY_INTERVAL_SECONDS=$1
 fi
 
+# Make sure we can read the credentials file before going further.
 if [ ! -r "$CREDS" ]; then
   echo "File $CREDS does not exist or is not readable."
   exit 1
 fi
 
+# Source the credentials so po_apptoken and po_userkey become available.
 . $CREDS
 
+# Verify the app token is present (-z tests for empty string).
 if [ -z "${po_apptoken}" ]; then
   echo "\$po_apptoken missing from $CREDS"
   exit 1
 fi
 
+# Verify the user key is present.
 if [ -z "${po_userkey}" ]; then
   echo "\$po_userkey missing from $CREDS"
   exit 1
 fi
 
-# Function to check if 20 minutes have passed
+# Decide whether enough time has passed to notify again.
+# Returns 0 (success/"yes, notify") or 1 (failure/"no, stay quiet"). In bash a
+# function's "return" value is its exit status, which `if` tests directly.
 function should_notify {
+    # If we've never notified before, the control file won't exist yet — so it's
+    # always OK to notify the first time.
     if [ ! -f "$NOTIFY_FILE" ]; then
         # If file doesn't exist, it's okay to notify
         return 0
     fi
 
-    # Calculate time difference
+    # Read the control file's last-modified time as a Unix timestamp (seconds
+    # since 1970). `stat -c %Y` prints that modification time.
     last_notify_time=$(stat -c %Y "$NOTIFY_FILE")
+    # Current time, also as a Unix timestamp.
     current_time=$(date +%s)
+    # How many seconds since the last notification.
     time_diff=$((current_time - last_notify_time))
 
+    # If at least a full interval has elapsed, allow another notification.
+    # -ge means "greater than or equal to".
     if [ $time_diff -ge $NOTIFY_INTERVAL_SECONDS ]; then
         return 0
     else
@@ -58,21 +92,25 @@ function should_notify {
 }
 
 
-# Read multi-line input from STDIN and assign it to msg
+# Read EVERYTHING from STDIN into msg (multi-line input becomes one message).
 msg=$(cat)
 
-# Prefix the sending machine's hostname so you know where the message came from
+# Prefix the sending machine's hostname so you know where the message came from.
 msg="[$(hostname -s)] $msg"
 
+# Only actually send if the quiet window has elapsed.
 if should_notify; then
 
+    # POST the notification to Pushover. See the `po` script for a field-by-field
+    # explanation of these curl flags.
     curl -s \
         --form-string "token=${po_apptoken}" \
         --form-string "user=${po_userkey}" \
         --form-string "message=$msg" \
         https://api.pushover.net/1/messages.json
 
-    # Update the notify control file's timestamp
+    # Reset the clock: touching the file updates its modification time to "now",
+    # which starts a fresh quiet window before the next allowed notification.
     touch "$NOTIFY_FILE"
 fi
 

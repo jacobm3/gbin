@@ -13,43 +13,63 @@
 # Folders (one topic per file): projects/  systems/  runbooks/  reference/
 # Auth: uses your normal git/SSH access to gitea (same as the gbin repo). No
 # secrets stored here.
+# Strict mode: -e exit on any error, -u error on unset variable, pipefail makes
+# a pipeline fail if any stage fails. Keeps a half-finished save from "succeeding".
 set -euo pipefail
 
+# First argument = the destination path inside the corpus. "${1:-}" means "use
+# $1, or empty string if it's unset" (so -u doesn't trip when no arg is given).
 REL="${1:-}"
 if [ -z "$REL" ]; then
   echo "usage: $(basename "$0") <folder>/<slug>.md   (markdown body on stdin)" >&2
   exit 1
 fi
+# Validate the path so a caller can't write outside the corpus folder.
 # Reject anything that could escape the corpus tree
 case "$REL" in
+  # Starts with "/" (absolute) OR contains ".." (parent-dir escape): refuse.
   /*|*..*) echo "ERROR: path must be relative and contain no '..'" >&2; exit 1 ;;
+  # Ends in .md: OK. ":" is bash's do-nothing command.
   *.md) : ;;
+  # Anything else (wrong extension): refuse.
   *) echo "ERROR: path must end in .md" >&2; exit 1 ;;
 esac
 
+# Where the local corpus clone lives and where to clone it from. The
+# "${VAR:-default}" form lets you override either via environment variable.
 CORPUS_DIR="${QMD_CORPUS_DIR:-$HOME/.cache/qmd/corpus}"
 CORPUS_URL="${QMD_CORPUS_URL:-ssh://git@gitea.mink-neon.ts.net:2222/jacobm3/qmd-corpus.git}"
 
 # Read the body before touching git, so an empty save fails cleanly.
 BODY="$(cat)"
+# Reject whitespace-only input. "${BODY//[$' \t\n']/}" deletes every space, tab,
+# and newline from BODY; if what's left is empty (-z), there was no real content.
 if [ -z "${BODY//[$' \t\n']/}" ]; then
   echo "ERROR: no content on stdin" >&2
   exit 1
 fi
 
 # Clone the corpus on first use; refresh it on every run.
+# If there's no .git directory yet, this machine hasn't cloned the corpus.
 if [ ! -d "$CORPUS_DIR/.git" ]; then
   echo "==> First run: cloning corpus to $CORPUS_DIR"
   mkdir -p "$(dirname "$CORPUS_DIR")"
   git clone -q "$CORPUS_URL" "$CORPUS_DIR"
 fi
 cd "$CORPUS_DIR"
+# Get the latest first. Try a clean fast-forward pull; if that's not possible
+# (local commits diverged), fall back to rebasing our changes on top.
 git pull -q --ff-only || git pull -q --rebase
 
 # Write the file (creates the folder if new).
+# dirname gives the folder part of the path; -p makes it (and parents) as needed.
 mkdir -p "$(dirname "$REL")"
+# printf (not echo) writes the body verbatim plus a trailing newline.
 printf '%s\n' "$BODY" > "$REL"
 
+# Stage the file, then check whether it actually changed anything. "git diff
+# --cached --quiet" exits 0 (true) when there is NOTHING staged to commit, so if
+# it's quiet we bail out early — no empty commit.
 git add "$REL"
 if git diff --cached --quiet; then
   echo "No change to $REL (corpus already had this content)."
@@ -77,6 +97,8 @@ fi
 
 git commit -q -m "memory: $REL"
 # Push; retry once if someone else pushed in between.
+# If the first push fails (likely because the remote moved on), rebase onto the
+# new remote tip and push again.
 if ! git push -q 2>/dev/null; then
   git pull -q --rebase && git push -q
 fi

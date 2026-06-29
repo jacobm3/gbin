@@ -8,6 +8,12 @@ URL="https://qmd.mink-neon.ts.net/mcp"
 HEALTH="https://qmd.mink-neon.ts.net/health"
 
 echo "==> Checking qmd service is reachable..."
+# Probe the health endpoint before changing anything. curl flags:
+#   -f  fail (nonzero exit) on HTTP errors like 404/500
+#   -s  silent (no progress bar)
+#   -S  but still show an error message if it fails
+#   --max-time 10  give up after 10 seconds rather than hang
+# "if ! curl ..." means "if the probe FAILED", so we print guidance and exit.
 if ! curl -fsS --max-time 10 "$HEALTH" >/dev/null 2>&1; then
   echo "ERROR: can't reach $HEALTH" >&2
   echo "  - Is this machine on the tailnet? (run: tailscale status)" >&2

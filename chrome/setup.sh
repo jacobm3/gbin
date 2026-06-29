@@ -67,10 +67,15 @@ command -v nmcli       >/dev/null || echo "WARNING: nmcli not found — chrome-w
 
 # --- 1. chrome-wait-online launcher --------------------------------------
 echo "==> Installing chrome-wait-online -> $WAIT_ONLINE_DST"
+# "install" copies a file and sets its permissions in one step.
+#   -D = create any missing parent directories of the destination.
+#   -m 0755 = make it executable (owner rwx, group/other r-x) — it's a script.
 install -D -m 0755 "$SRC_DIR/chrome-wait-online" "$WAIT_ONLINE_DST"
 
 # --- 2. autostart entry ---------------------------------------------------
 echo "==> Installing autostart entry -> $DESKTOP_DST"
+# -m 0644 = a normal (non-executable) data file: a .desktop config the desktop
+# environment reads at login to know what to autostart.
 install -D -m 0644 "$SRC_DIR/chrome.desktop" "$DESKTOP_DST"
 
 # --- 3. chrome-tab-reaper + systemd user timer ---------------------------
@@ -78,14 +83,21 @@ echo "==> Installing chrome-tab-reaper -> $REAPER_DST"
 install -D -m 0755 "$SRC_DIR/chrome-tab-reaper.py" "$REAPER_DST"
 
 echo "==> Creating reaper log directory -> $REAPER_LOG_DIR"
+# "install -d" just creates a directory (here with mode 0750 = owner full,
+# group read/exec, others none).
 install -d -m 0750 "$REAPER_LOG_DIR"
 
 echo "==> Installing systemd user units -> $UNIT_DIR"
+# A systemd ".service" says WHAT to run; the ".timer" says WHEN. Together they
+# replace a cron job, but as a per-user unit (no root needed).
 install -D -m 0644 "$SRC_DIR/chrome-tab-reaper.service" "$UNIT_DIR/chrome-tab-reaper.service"
 install -D -m 0644 "$SRC_DIR/chrome-tab-reaper.timer"   "$UNIT_DIR/chrome-tab-reaper.timer"
 
 echo "==> Enabling hourly reaper timer"
+# "systemctl --user" manages this user's own systemd instance (not the system).
+# daemon-reload tells it to re-read the unit files we just dropped in.
 systemctl --user daemon-reload
+# enable = start at every login; --now = also start it right now.
 systemctl --user enable --now chrome-tab-reaper.timer
 
 # --- summary --------------------------------------------------------------

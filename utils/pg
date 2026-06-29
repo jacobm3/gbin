@@ -1,8 +1,32 @@
+# pg -- "process grep": show running processes whose lines match a pattern,
+# while always keeping the `ps` header row so the columns stay readable.
+#
+# What it does: captures `ps aux` (all processes, all users), prints the first
+# line (the column header: USER PID %CPU ... COMMAND), then prints only the
+# lines matching the pattern you pass as the first argument. Unlike a plain
+# `ps aux | grep foo`, the header is preserved and you don't get the grep
+# command itself cluttering the results (it ran before the search file existed).
+#
+# How to run it:
+#   pg <pattern>        e.g.  pg sshd        pg python        pg root
+# (No shebang; run via `sh pg <pattern>` or make it executable.)
+#
+# Prerequisites: ps, egrep (both standard).
+
+# Build a unique temp filename. $$ is this shell's process ID so concurrent
+# runs don't collide; the leading dot makes it hidden in /tmp.
 tmpfile=/tmp/.grep.$$
+# Create/empty that file ('>' alone truncates it to zero length).
 >$tmpfile
 
+# Snapshot all processes into the temp file.
+#   ps aux : a = other users' processes, u = user-oriented columns,
+#            x = include processes with no controlling terminal.
 ps aux > $tmpfile
+# Print line 1 only: the column header.
 head -1 $tmpfile
+# Print every line matching the user's pattern ($1). egrep = grep -E.
 egrep $1 $tmpfile
 
+# Clean up the temp file.
 rm $tmpfile

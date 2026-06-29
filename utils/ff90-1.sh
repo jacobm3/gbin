@@ -1,6 +1,23 @@
 #!/bin/bash
+#
+# ff90-1.sh — rotate a video 90 degrees clockwise.
+#
+# What it does:
+#   Rotates the input video using ffmpeg's transpose=1 filter (90 degrees
+#   clockwise) and saves a timestamped .mp4. Audio is copied unchanged; video
+#   is re-encoded with H.264 (libx264).
+#
+# How to run it:
+#   ff90-1.sh <filename>
+#     <filename>  the video to rotate (required)
+#
+# Prerequisites:
+#   ffmpeg with the libx264 encoder, installed and on your PATH.
+#
+# Naming: the "90-1" in the filename means "90 degrees, transpose value 1".
 
 # Check if the filename is provided
+# -z is true for an empty string (no argument). If so, print usage and quit.
 if [ -z "$1" ]; then
     echo "Usage: $0 filename"
     exit 1
@@ -10,15 +27,23 @@ fi
 input_file="$1"
 
 # Extract the base name (remove extension) from the input filename
+# "${input_file%.*}" drops the extension (clip.mov -> clip); we add .mp4 below.
 base_name="${input_file%.*}"
 
 # Get the current date and time in the desired format
+# YYYYMMDD.HHMMSS timestamp keeps each output filename unique.
 timestamp=$(date +"%Y%m%d.%H%M%S")
 
 # Construct the output filename
 output_file="${base_name}.90.${timestamp}.mp4"
 
-# Run the ffmpeg command to flip the video upside down
+# Run the ffmpeg command to rotate the video 90 degrees clockwise
+#   -i "$input_file"   - the source video.
+#   -vf "transpose=1"  - video filter. transpose rotates by 90 degrees; value 1
+#                        means "90 degrees clockwise" (it also swaps width/height).
+#                        (For reference: 0=90 CCW+vflip, 1=90 CW, 2=90 CCW, 3=90 CW+vflip.)
+#   -c:a copy          - copy the audio stream as-is (no re-encode).
+#   -c:v libx264       - re-encode the video with the H.264 encoder.
 ffmpeg -i "$input_file" -vf "transpose=1" -c:a copy -c:v libx264 "$output_file"
 
 echo "Output saved to $output_file"

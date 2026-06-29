@@ -1,6 +1,28 @@
 #!/usr/bin/env bash
+# ============================================================================
+# chrome-wait-online — wait for real internet, then open Chrome with work tabs
+# ============================================================================
+#
+# WHAT THIS DOES
+#   At login the network often isn't truly "up" yet (Wi-Fi associating, VPN
+#   connecting, DNS not ready). If Chrome opens too early, all its pinned tabs
+#   fail to load. This script waits until the machine genuinely has internet
+#   (NetworkManager reports "full" connectivity AND a real HTTPS probe
+#   succeeds), then launches Chrome with a fixed list of work tabs. It gives up
+#   waiting after 2 minutes and opens Chrome anyway so you're never stuck.
+#
+# HOW TO RUN
+#   Installed to ~/.local/bin/chrome-wait-online by chrome/setup.sh and run at
+#   XFCE login via an autostart .desktop entry. Can also be run by hand.
+#
+# PREREQUISITES: google-chrome, nmcli (NetworkManager), and curl.
+# ============================================================================
+
+# set -u = treat use of an unset variable as an error (catches typos early).
 set -u
 
+# The tabs to open. Each entry is one URL; "${urls[@]}" later expands the whole
+# array into separate arguments to google-chrome.
 urls=(
   "https://gmail.com"
   "https://mail.proton.me/u/8/inbox/"
@@ -15,13 +37,25 @@ urls=(
 )
 
 # Wait for NetworkManager to report connectivity, then verify external HTTPS.
+# $SECONDS is a bash built-in that counts seconds since the script started, so
+# "deadline" is the timestamp 120 seconds (2 minutes) from now.
 deadline=$((SECONDS + 120))
+# Keep checking until we either succeed or hit the deadline.
 while (( SECONDS < deadline )); do
+  # Two checks, both must pass (the && between them):
+  #   1. nmcli ... CONNECTIVITY prints NetworkManager's view; grep -qx 'full'
+  #      requires the line to be exactly "full" (-x = whole-line, -q = quiet).
+  #   2. curl actually fetches Google's tiny "generate_204" endpoint to confirm
+  #      real internet, not just a local link. Flags: --silent (no progress),
+  #      --head (request headers only, no body), --fail (non-2xx = error exit),
+  #      --max-time 5 (give up after 5s).
   if nmcli -t -f CONNECTIVITY general status 2>/dev/null | grep -qx 'full' &&
      curl --silent --head --fail --max-time 5 https://www.google.com/generate_204 >/dev/null; then
+    # We're online. "exec" REPLACES this script with Chrome (no leftover shell).
     exec /usr/bin/google-chrome "${urls[@]}"
   fi
 
+  # Not online yet — wait 2 seconds and loop again.
   sleep 2
 done
 

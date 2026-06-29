@@ -1,8 +1,41 @@
 #!/usr/bin/env bash
-# vm-nuke — forcibly stop and destroy Proxmox VM(s) with all associated resources.
+# qm-nuke — forcibly stop and destroy Proxmox VM(s) with all associated resources.
+#
+# ############################################################################
+# # !!! DESTRUCTIVE !!!  THIS PERMANENTLY DELETES VIRTUAL MACHINES AND THEIR  #
+# # DISKS. There is NO undo and NO recycle bin. A nuked VM and its data are   #
+# # gone unless you have a separate backup. Double-check the VMID(s) you pass.#
+# # When unsure, run with -n (dry run) first to see exactly what WOULD happen.#
+# ############################################################################
+#
+# WHAT THIS DOES:
+#   For each VMID you give it: force-stops the VM, then destroys it with
+#   --purge (also removes it from backup/replication/HA job configs) and
+#   --destroy-unreferenced-disks (deletes leftover disks on active storage that
+#   belonged to the VM). Skips VMIDs that don't exist.
+#
+# HOW TO RUN (on a Proxmox VE node):
+#   qm-nuke <vmid> [vmid...]        prompts before each destroy
+#   qm-nuke -n <vmid>               dry run: show what would happen, change nothing
+#   qm-nuke -f <vmid>               force: skip the y/N prompt (for automation)
+#   qm-nuke -h                      help
+#
+# PREREQUISITES:
+#   - Run on a Proxmox node (the `qm` command must exist).
+#   - Sudo rights for `qm` (the script calls `sudo qm ...`).
+#
 # Must be run on a Proxmox VE node (requires `qm`).
+
+# Strict bash safety flags:
+#   -e            exit immediately if any command fails
+#   -u            error on use of an unset variable (catches typos)
+#   -o pipefail   a pipeline fails if ANY stage fails, not just the last
+# These make the script fail fast rather than blunder on after an error — which
+# matters a lot for something this destructive.
 set -euo pipefail
 
+# usage(): print the help/usage text. Defined as a function so we can call it
+# from several places (—h, or whenever arguments are wrong).
 usage() {
     cat <<'EOF'
 Usage: vm-nuke [-f] [-n] <vmid> [vmid...]
@@ -17,52 +50,88 @@ Options:
 EOF
 }
 
+# Option flags, default off. force=1 skips the confirmation prompt; dry=1 makes
+# the script only describe what it would do.
 force=0
 dry=0
+# Parse command-line options with getopts. The string 'fnh' lists the accepted
+# flags. For each one found, set the matching variable or show help.
 while getopts 'fnh' opt; do
     case "$opt" in
         f) force=1 ;;
         n) dry=1 ;;
         h) usage; exit 0 ;;
+        # Any unknown option: print usage to stderr (>&2) and exit with code 2.
         *) usage >&2; exit 2 ;;
     esac
 done
+# Drop the parsed options from the argument list so that "$@" below is just the
+# VMIDs. OPTIND is the index of the first non-option arg; shift removes the rest.
 shift $((OPTIND - 1))
 
+# If no VMIDs were given, show usage and exit with an error.
 [[ $# -eq 0 ]] && { usage >&2; exit 2; }
 
+# Safety check: refuse to run anywhere `qm` isn't installed, so we can't do
+# damage on the wrong kind of host. 'command -v qm' succeeds only if qm is on
+# PATH; the leading '!' makes the 'then' branch run when it's MISSING.
 if ! command -v qm >/dev/null 2>&1; then
     echo "error: qm not found — run this on a Proxmox VE node" >&2
     exit 1
 fi
 
+# Process each VMID passed on the command line, one at a time.
 for vmid in "$@"; do
+    # Reject anything that isn't all digits. The regex ^[0-9]+$ means "start,
+    # one or more digits, end". This guards against fat-fingering a name or
+    # path where a numeric VMID belongs — important before a destroy.
     if ! [[ "$vmid" =~ ^[0-9]+$ ]]; then
         echo "error: '$vmid' is not a valid VMID" >&2
         exit 2
     fi
 
+    # Make sure the VM actually exists before doing anything. `qm config` exits
+    # non-zero for an unknown VMID; if so, warn and skip to the next one
+    # ('continue') rather than erroring out the whole run.
     # Confirm it exists before touching anything
     if ! sudo qm config "$vmid" >/dev/null 2>&1; then
         echo "warning: VM $vmid does not exist, skipping" >&2
         continue
     fi
 
+    # Look up the VM's friendly name for clearer prompts/messages. We read the
+    # "name: ..." line from `qm config` and use awk with field separator ': '
+    # to grab the value after the colon.
     name=$(sudo qm config "$vmid" | awk -F': ' '/^name:/ {print $2}')
+    # If the VM has no name, fall back to the literal text <unnamed>.
+    # (${var:-default} = use $var, or "default" when it's empty/unset.)
     name=${name:-<unnamed>}
 
+    # DRY RUN: just say what we would do and move on — touch nothing.
     if [[ $dry -eq 1 ]]; then
         echo "[dry-run] would stop and destroy VM $vmid ($name)"
         continue
     fi
 
+    # Unless -f (force) was given, ask for explicit confirmation. The destroy
+    # only proceeds if the answer is exactly y or Y; anything else skips this
+    # VM. This is the last line of defense before irreversible deletion.
     if [[ $force -ne 1 ]]; then
         read -rp "Destroy VM $vmid ($name) and ALL its resources? [y/N] " ans
         [[ "$ans" =~ ^[Yy]$ ]] || { echo "skipped $vmid"; continue; }
     fi
 
+    # Step 1: force-stop the VM (immediate power-off, not a clean shutdown).
     echo ">>> stopping $vmid"
+    # If it's already stopped, `qm stop` errors; "|| true" swallows that so the
+    # run continues instead of aborting under 'set -e'.
     sudo qm stop "$vmid" || true   # already-stopped is fine; don't abort the run
+    # Step 2: THE DESTRUCTIVE PART. Permanently delete the VM. Flags:
+    #   --purge                          also remove it from backup/replication/
+    #                                    HA job configs so no stale references remain
+    #   --destroy-unreferenced-disks 1   also delete leftover disk volumes on
+    #                                    active storage that belonged to this VM
+    # After this line the VM and its disks are gone for good.
     echo ">>> destroying $vmid"
     sudo qm destroy "$vmid" --purge --destroy-unreferenced-disks 1
     echo ">>> done: $vmid ($name)"

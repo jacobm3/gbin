@@ -1,11 +1,39 @@
 #!/bin/bash
 
+# ---------------------------------------------------------------------------
+# passgen
+#
+# What it does:
+#   Prints one memorable-but-strong password made of 3 random dictionary words
+#   plus a random 3-digit number, all joined by dashes.
+#   Example output: correct-horse-battery-528
+#   (This is the "xkcd-style" passphrase idea: easy for a human to remember,
+#    hard for a computer to guess because of the large word combination space.)
+#
+# How to run:
+#   ./passgen
+#   (No arguments. Prints a single password to standard output.)
+#
+# Prerequisites:
+#   - bash.
+#   - xkcdpass (auto-installed via apt if missing; needs passwordless sudo).
+#   - shuf (part of GNU coreutils, normally already installed).
+# ---------------------------------------------------------------------------
+
 # Auto-install xkcdpass if it isn't already present
+# `command -v xkcdpass` prints the program's path if it exists; the leading !
+# means "if it does NOT exist". &> /dev/null throws away all output so the
+# check stays quiet.
 if ! command -v xkcdpass &> /dev/null; then
+  # >&2 sends this notice to standard error, keeping standard output clean so
+  # the generated password (printed later) is the only thing on stdout.
   echo "xkcdpass not found, installing..." >&2
+  # Install it without prompting (-y). If the install fails, `|| exit 1` stops
+  # the script with an error code instead of continuing.
   sudo apt install -y xkcdpass || exit 1
 fi
 
+# Make sure shuf is available too; we use it for the random number below.
 if ! command -v shuf &> /dev/null; then
   echo "Error: shuf not found.  It should be part of coreutils."
   exit 1
@@ -13,4 +41,10 @@ fi
 
 
 # Generate the password
+# Two $( ... ) command substitutions run and their output is placed inline:
+#   xkcdpass -n 3        -> three random words separated by spaces.
+#   shuf -i 100-999 -n 1 -> one random integer from the range 100..999.
+# echo prints them with a space between, then we pipe to sed.
+#   sed 's/ /-/g' replaces every space with a dash (g = all occurrences),
+#   turning "word word word 528" into "word-word-word-528".
 echo "$(xkcdpass -n 3) $(shuf -i 100-999 -n 1)"  | sed 's/ /-/g'

@@ -1,21 +1,52 @@
 #!/usr/bin/python3
 #
-# Reads a single JWKS from STDIN and prints it in PEM
+# jwks2pem
+#
+# What it does:
+#   Reads a single JSON Web Key (JWK) on standard input and prints the matching
+#   RSA public key in PEM format (the familiar "-----BEGIN PUBLIC KEY-----"
+#   text). PEM is what most tools (openssl, libraries, config files) expect, so
+#   this converts a JWK published by an identity provider into a usable key.
+#
+#   Note: despite the name, the input is one JWK object, NOT a full JWKS set
+#   (a JWKS is a {"keys": [ ... ]} list). If you have a JWKS, pull out a single
+#   element of the "keys" array first (e.g. with jq) and pipe that in.
+#
+# How to run:
+#   cat key.jwk | ./jwks2pem
+#   curl -s https://issuer/.well-known/jwks.json | jq '.keys[0]' | ./jwks2pem
+#
+# Prerequisites:
+#   - Python 3.
+#   - The PyJWT library installed WITH its crypto extra, and the cryptography
+#     package: pip install "pyjwt[crypto]" cryptography
+# ---------------------------------------------------------------------------
 
+# Standard library: json parses text into Python objects; sys gives us stdin.
 import json
 import jwt
 import sys
 
+# `serialization` knows how to encode a key object into formats like PEM.
 from cryptography.hazmat.primitives import serialization
 
+# Read the entire JWK text from standard input (everything piped into us).
 webkey = sys.stdin.read()
 
+# Turn that JSON text into a Python dictionary so the JWT library can read it.
 webkey = json.loads(webkey)
 
+# from_jwk() builds an RSA public key object from the JWK dictionary.
 public_key = jwt.algorithms.RSAAlgorithm.from_jwk(webkey)
+# public_bytes() serializes that key object into raw bytes. We ask for:
+#   encoding = PEM  -> the base64 text wrapped in BEGIN/END header lines.
+#   format = SubjectPublicKeyInfo -> the standard public-key wrapper that
+#            includes the algorithm identifier (what most software expects).
 pubk_bytes = public_key.public_bytes(encoding=serialization.Encoding.PEM,
     format=serialization.PublicFormat.SubjectPublicKeyInfo)
 
+# public_bytes() returns raw bytes; .decode() turns them back into a printable
+# string so the PEM text shows up correctly on screen.
 print(pubk_bytes.decode())
 
 

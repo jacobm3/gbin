@@ -9,10 +9,17 @@
 
 remote=origin
 use_commit=0
+# Option-parsing loop. "${1#-}" removes a leading '-' from $1; if that differs
+# from $1, then $1 must have started with '-', i.e. it's an option flag. The
+# loop keeps consuming flags until $1 no longer looks like an option.
 while [ "$1" != "${1#-}" ]; do          # loop while $1 starts with '-'
     case "$1" in
+        # -r REMOTE : take the next word ($2) as the remote name, then drop
+        #             both this flag and its value (shift 2).
         -r) remote=$2; shift 2 ;;
+        # -c : pin to a commit SHA; drop just this flag (shift).
         -c) use_commit=1; shift ;;
+        # Anything else starting with '-' is unrecognized: error out.
         *) echo "unknown option: $1" >&2; exit 1 ;;
     esac
 done
@@ -26,8 +33,14 @@ root=$(cd "$(dirname "$abs")" && git rev-parse --show-toplevel 2>/dev/null) \
 relpath=${abs#"$root"/}                  # path of file relative to repo root
 
 # Get the remote URL and normalize ssh/scp/https forms down to host + owner/repo.
+# git -C "$root" runs git as if from the repo root. `remote get-url` prints the
+# configured URL for the chosen remote; if the remote doesn't exist, abort.
 url=$(git -C "$root" remote get-url "$remote" 2>/dev/null) \
     || { echo "no such remote: $remote" >&2; exit 1; }
+# The remaining lines use shell parameter expansion to peel a URL down to just
+# "host/owner/repo". ${var#prefix} removes 'prefix' from the FRONT if present;
+# ${var%suffix} removes 'suffix' from the END. Here we strip each possible
+# protocol prefix in turn (only the matching one actually changes anything).
 url=${url#ssh://}; url=${url#https://}; url=${url#http://}; url=${url#git://}
 url=${url#*@}                            # drop any leading user@ (e.g. git@)
 url=${url%.git}                          # drop trailing .git

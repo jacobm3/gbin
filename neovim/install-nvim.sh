@@ -32,11 +32,16 @@ warn() { printf '\033[1;33m[warn]\033[0m %s\n' "$*" >&2; }
 die()  { printf '\033[1;31m[error]\033[0m %s\n' "$*" >&2; exit 1; }
 
 usage() {
+  # Print the help text by echoing this script's own header comment block:
+  # `sed -n '3,14p'` prints lines 3..14 of the file ($0), and the second sed
+  # strips the leading "# " from each so it reads as plain text.
   sed -n '3,14p' "$0" | sed 's/^# \{0,1\}//'
   exit 0
 }
 
 gh_latest_tag() {  # repo -> tag_name of the newest stable release
+  # Ask GitHub's API for the repo's latest release, then use jq to pull just the
+  # "tag_name" field (e.g. "v0.12.2"). $1 is the "owner/repo" passed in.
   curl -fsSL "https://api.github.com/repos/$1/releases/latest" | jq -r '.tag_name'
 }
 
@@ -52,7 +57,11 @@ for arg in "$@"; do
 done
 
 # --- scratch dir ----------------------------------------------------------
+# Make a temporary working directory for downloads. mktemp -d creates a unique
+# empty dir and prints its path.
 TMP="$(mktemp -d)"
+# Ensure that temp dir is removed no matter how the script ends (success, error,
+# or Ctrl-C). "trap '<cmd>' EXIT" runs <cmd> when the shell exits.
 trap 'rm -rf "$TMP"' EXIT
 
 # --- phase 0: preflight ---------------------------------------------------
@@ -66,8 +75,13 @@ command -v cc >/dev/null 2>&1 || command -v gcc >/dev/null 2>&1 \
   || warn "no C compiler (cc/gcc) found — tree-sitter parser compilation may fail"
 
 mkdir -p "$BIN_DIR"
+# Check whether $BIN_DIR is already on PATH. Wrapping both PATH and the dir in
+# colons (":$PATH:" and ":$BIN_DIR:") lets one glob match it anywhere in the
+# list — start, middle, or end — without false matches on partial names.
 case ":$PATH:" in
+  # Found it: do nothing.
   *":$BIN_DIR:"*) ;;
+  # Not found: warn and show the line to add to the shell rc.
   *) warn "$BIN_DIR is not on your PATH. Add this to your shell rc:"
      info "export PATH=\"\$HOME/.local/bin:\$PATH\"" ;;
 esac
@@ -179,9 +193,16 @@ fi
 # --- phase 4: verify ------------------------------------------------------
 log "Verify"
 if command -v "$BIN_DIR/nvim" >/dev/null 2>&1; then
+  # Show the installed version (first line of --version).
   "$BIN_DIR/nvim" --version | head -1
+  # Launch nvim with no UI (--headless), run a tiny Lua command to print the
+  # resolved config dir, then quit (+qa). This forces nvim to load the config,
+  # so config errors surface here instead of on first interactive use.
   "$BIN_DIR/nvim" --headless "+lua print('config dir: '..vim.fn.stdpath('config'))" +qa 2>&1 || \
     warn "nvim reported errors loading the config (see above)"
+  # Count the compiled tree-sitter parser files (*.so) shipped in the data dir.
+  # The Lua globs the parser folder and writes the count (#... is Lua's "length
+  # of list"). On any failure we substitute "?" so the line still prints.
   parser_count="$("$BIN_DIR/nvim" --headless \
     "+lua io.write(#(vim.fn.globpath(vim.fn.stdpath('data')..'/site/parser','*.so',0,1)))" +qa 2>/dev/null || echo '?')"
   info "precompiled tree-sitter parsers in data dir: $parser_count"

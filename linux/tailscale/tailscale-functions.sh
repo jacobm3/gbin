@@ -23,9 +23,19 @@ unalias ts 2>/dev/null
 # Reads stdin, tints addresses / states / durations / counters, writes stdout.
 # $1: 1 = force color, 0 = force off, omitted = auto (color iff stdout is a tty).
 _ts_paint() {
+  # "on" = should we colorize? Take it from the first argument if one was given.
+  # "${1-}" means "the first arg, or empty string if there isn't one" (avoids an
+  # unbound-variable error under "set -u").
   local on=${1-}
+  # If "on" wasn't passed (empty), auto-decide: "[[ -t 1 ]]" is true when stdout
+  # is a real terminal, so color on; otherwise (pipe/redirect) color off.
   [[ -n $on ]] || { [[ -t 1 ]] && on=1 || on=0; }
+  # If color is off, just pass stdin straight to stdout unchanged ("cat") and
+  # return early, skipping all the sed coloring below.
   [[ $on == 1 ]] || { cat; return; }
+  # Define the ANSI escape codes we paint with. $'\e[..m' is a literal escape
+  # sequence; the terminal interprets these as color/style changes. "n" resets
+  # back to normal after each colored span.
   local b=$'\e[1m' dim=$'\e[2m' g=$'\e[32m' r=$'\e[31m' y=$'\e[33m' \
         c=$'\e[38;2;180;190;254m' m=$'\e[35m' n=$'\e[0m'   # c = lavender #b4befe (truecolor)
   # Rules run left→right per line. Address/state rules inject escapes that contain
@@ -66,9 +76,15 @@ ts() {
     status|ping|netcheck|ip|version|whois|dns|metrics|lock|netmap|debug) ;;
     *) on=0 ;;
   esac
+  # "(( on ))" is true when on is 1. "command tailscale" runs the real binary,
+  # bypassing this function/any alias, to avoid infinite recursion.
   if (( on )); then
+    # Pipe the real output through the colorizer (forcing color on with "1").
     command tailscale "$@" | _ts_paint 1
+    # In a pipeline "$?" would be _ts_paint's exit code; PIPESTATUS[0] is the
+    # FIRST command's (tailscale's) exit code, which is the one callers care about.
     return "${PIPESTATUS[0]}"
   fi
+  # Color disabled: run tailscale directly so its stdin/stdout/tty are untouched.
   command tailscale "$@"
 }

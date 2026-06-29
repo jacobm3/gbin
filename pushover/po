@@ -1,36 +1,67 @@
 #!/bin/bash
+#
+# po — send a push notification to your phone via the Pushover service.
+#
+# Pushover (https://pushover.net) is a paid app that turns an HTTP POST into a
+# notification on your phone/desktop. You read the message text from STDIN, so
+# this plays nicely in a pipe, e.g.:
+#     echo "backup finished" | po
+#     long-running-job 2>&1 | tail -1 | po
+# Multi-line messages work fine (the whole STDIN stream becomes one message).
+#
+# PREREQUISITES:
+#   - curl must be installed.
+#   - A credentials file at ~/.pushover.shell that sets two shell variables:
+#         po_apptoken=...   (your Pushover application/API token)
+#         po_userkey=...    (your Pushover user key)
+#     These identify which Pushover app and which user (you) to notify.
 
-# Send a message to pushover service
-# Supports multi-line messages!
-
-# source pushover secrets from external file
-# po_apptoken, po_userkey
+# Path to the file that holds the two secret tokens. Keeping them in a separate
+# file (not in this script) means this script can live in a public git repo
+# without leaking credentials.
 CREDS=~/.pushover.shell
 
+# Bail out early with a clear message if the credentials file is missing or we
+# can't read it (-r tests for read permission). Without it we have no tokens.
 if [ ! -r "$CREDS" ]; then
   echo "File $CREDS does not exist or is not readable."
   exit 1
 fi
 
+# "Source" the credentials file: run it in the current shell so the variables
+# it sets (po_apptoken, po_userkey) become available here. The leading "." is
+# the same as the "source" command.
 . $CREDS
 
+# Make sure the app token actually got set. -z tests for an empty string.
+# The backslash before $ prints a literal "$po_apptoken" in the error text.
 if [ -z "${po_apptoken}" ]; then
   echo "\$po_apptoken missing from $CREDS"
   exit 1
 fi
 
+# Same check for the user key.
 if [ -z "${po_userkey}" ]; then
   echo "\$po_userkey missing from $CREDS"
   exit 1
 fi
 
 
-# Read multi-line input from STDIN and assign it to msg
+# Read EVERYTHING from standard input into the msg variable. `cat` with no file
+# argument reads STDIN until end-of-input, so piped or redirected multi-line
+# text all lands in one variable.
 msg=$(cat)
 
 # Prefix the sending machine's hostname so you know where the message came from
+# when you get the notification. `hostname -s` is the short name (no domain).
 msg="[$(hostname -s)] $msg"
 
+# POST the notification to Pushover's API.
+#   -s             quiet/silent mode (no progress meter)
+#   --form-string  send a literal form field (no '@file' or special parsing),
+#                  which is important so message text is sent verbatim.
+# Pushover requires the token, the user key, and the message; the URL is the
+# Pushover "send message" endpoint.
 curl -s \
 --form-string "token=${po_apptoken}" \
 --form-string "user=${po_userkey}" \

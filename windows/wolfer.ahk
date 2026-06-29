@@ -1,18 +1,62 @@
 
 
-;============================================================== 
+; ============================================================================
+; wolfer.ahk — KDE-style "grab anywhere" window move/resize for Windows
+; ============================================================================
+;
+; WHAT THIS DOES
+;   Lets you move and resize ANY window by holding Alt and dragging with the
+;   mouse anywhere inside it (like KDE/GNOME on Linux), instead of having to aim
+;   at the tiny title bar or window edges:
+;     - Alt + Left-drag    = move the window
+;     - Alt + Right-drag   = resize the window (the corner nearest the cursor)
+;     - Right+Left click    = minimize the window
+;     - Left+Right click    = maximize / restore the window
+;     - Middle + any other  = close the window
+;   ("wolfer" is a long-circulated community AutoHotkey script; the chatty
+;    comments below are the original author's.)
+;
+; HOW TO RUN
+;   Install AutoHotkey v1 (https://www.autohotkey.com), then double-click this
+;   .ahk file (or put a shortcut to it in your Startup folder so it runs at
+;   login). A green "H" tray icon appears; right-click it to exit/reload.
+;
+; PREREQUISITES: AutoHotkey v1.x (this uses v1 syntax; it will NOT run under v2).
+;
+; AUTOHOTKEY SYNTAX CHEAT-SHEET (used throughout this file)
+;   ;            starts a comment (AHK uses ; not #)
+;   !            modifier meaning the Alt key, e.g. !LButton = Alt + Left mouse
+;   LButton / RButton / MButton = the left / right / middle mouse buttons
+;   ~            "pass-through" prefix: still send the normal click to Windows
+;                while also firing our hotkey (so clicks aren't swallowed)
+;   &            chord operator: "A & B" = press A, then B, to trigger
+;   Label::      defines a hotkey or label; the lines under it run until "return"
+;   :=           assignment of an expression;  %var% expands a variable's value
+; ============================================================================
+
+;==============================================================
+; Alternate picks between two behavior "sets". false = the default set below.
 Alternate := false ; Set to true for the alternate set. I bet 
-                   ; that was tough to figure out, huh? 
+                   ; that was tough to figure out, huh?
+; SetWinDelay sets how long AHK pauses after each window move/resize command.
+; 0 = no pause = the smoothest, most responsive dragging.
 SetWinDelay,0 ; The lower, the faster. Keep in mind that faster 
-              ; doesn't necessarily mean better. 
-;============================================================== 
+              ; doesn't necessarily mean better.
+;==============================================================
 
 
-; If you like having fun breaking scripts, remove 
-; the line below. I haven't tried it yet. ;-D 
+; If you like having fun breaking scripts, remove
+; the line below. I haven't tried it yet. ;-D
+; CoordMode,Mouse makes all mouse X/Y positions relative to the whole screen,
+; so the window-position math below lines up correctly.
 CoordMode,Mouse 
+; This auto-execute section runs once at startup. Based on the Alternate flag,
+; it turns specific hotkeys on or off via the Hotkey command. "off" disables a
+; hotkey so the listed button combos behave normally.
 If Alternate 
 { 
+   ; Alternate set: bind Alt+Left/Right to the Alternate1/Alternate2 labels and
+   ; switch off the middle-button and double-Alt behaviors.
    Hotkey,!LButton,Alternate1 
    Hotkey,!RButton,Alternate2 
    Hotkey,!MButton,off 
@@ -20,6 +64,8 @@ If Alternate
 } 
 Else 
 { 
+   ; Default set: disable the two-button chord hotkeys defined later in the
+   ; file so the plain Alt+drag hotkeys are the ones in effect.
    Hotkey,~RButton & LButton,off 
    Hotkey,~LButton & RButton,off 
    Hotkey,~MButton & RButton,off 
@@ -27,12 +73,17 @@ Else
    Hotkey,~RButton & MButton,off 
    Hotkey,~LButton & MButton,off 
 } 
+; "return" ends the auto-execute section; everything after this point only runs
+; when its hotkey is pressed.
 return 
 
+; HOTKEY: Alt + Left mouse button held = MOVE the window under the cursor.
 !LButton:: 
 
+; Record the starting mouse position (KDE_X1,KDE_Y1) and the window under the
+; cursor (KDE_id). We compare against these as the mouse moves.
 MouseGetPos,KDE_X1,KDE_Y1,KDE_id 
-; The code below checks if the window's 
+; The code below checks if the window's
 ; maximized. Obviously, it terminates 
 ; if it is. 
 WinGet,KDE_Win,MinMax,ahk_id %KDE_id% 
@@ -60,7 +111,9 @@ Loop ; I took the timer off. For some reason I like loops better.
 } 
 return 
 
-; This is the above code without the unused double-alt. 
+; This is the above code without the unused double-alt.
+; LABEL Alternate1: the "move window" routine used when Alternate := true.
+; Same logic as the !LButton:: block above.
 Alternate1: 
 MouseGetPos,KDE_X1,KDE_Y1,KDE_id 
 WinGet,KDE_Win,MinMax,ahk_id %KDE_id% 
@@ -81,10 +134,13 @@ Loop
 } 
 return 
 
+; HOTKEY: Alt + Right mouse button held = RESIZE the window under the cursor.
+; It figures out which corner the mouse is nearest and drags that corner.
 !RButton:: 
 
+; Record the starting mouse position and the target window id.
 MouseGetPos,KDE_X1,KDE_Y1,KDE_id 
-; Again, just checking if it's already 
+; Again, just checking if it's already
 ; maximized. I'm surprised none of this 
 ; script's predecessors had this. 
 WinGet,KDE_Win,MinMax,ahk_id %KDE_id% 
@@ -158,6 +214,8 @@ Loop
 } 
 return 
 
+; LABEL Alternate2: the "resize window" routine used when Alternate := true.
+; Same logic as the !RButton:: block above.
 Alternate2: 
 MouseGetPos,KDE_X1,KDE_Y1,KDE_id 
 WinGet,KDE_Win,MinMax,ahk_id %KDE_id% 
@@ -201,9 +259,12 @@ Loop
 } 
 return 
 
+; HOTKEY: Alt + Middle mouse button. Only does anything if a DoubleAlt flag was
+; set (that feature isn't wired up here), so in practice this is a no-op.
 !MButton:: 
 If DoubleAlt 
 { 
+   ; Close the window under the cursor, then clear the flag.
    MouseGetPos,,,KDE_id 
    WinClose,ahk_id %KDE_id% 
    DoubleAlt := false 
@@ -218,13 +279,20 @@ return
 ; working stuff I got. Either think up 
 ; different combos or make this work right 
 ; if you're too annoyed to live with it. 
+; CHORD: hold Right button, then click Left = MINIMIZE the window under cursor.
+; The ~ keeps the normal right-click working too.
 ~RButton & LButton:: 
 MouseGetPos,,,KDE_id 
+; PostMessage sends a raw Windows message: 0x112 = WM_SYSCOMMAND,
+; 0xf020 = SC_MINIMIZE — i.e. "minimize this window".
 PostMessage,0x112,0xf020,,,ahk_id %KDE_id% 
 return 
 
+; CHORD: hold Left button, then click Right = toggle MAXIMIZE/RESTORE the window.
 ~LButton & RButton:: 
 MouseGetPos,,,KDE_id 
+; WinGet ...,MinMax reports if the window is maximized (1), normal (0), or
+; minimized (-1). If it's already maximized, restore it; otherwise maximize it.
 WinGet,KDE_Win,MinMax,ahk_id %KDE_id% 
 If KDE_Win 
    WinRestore,ahk_id %KDE_id% 
@@ -232,6 +300,8 @@ Else
    WinMaximize,ahk_id %KDE_id% 
 return 
 
+; CHORD: any middle-button + another-button combo = CLOSE the window under the
+; cursor. Stacking four labels means all four combos run the same code below.
 ~MButton & RButton:: 
 ~MButton & LButton:: 
 ~RButton & MButton:: 

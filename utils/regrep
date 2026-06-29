@@ -1,13 +1,47 @@
 #!/usr/bin/python3
 
 # easy grep filter with more py/re options
+#
+# regrep -- a grep-like filter that extracts a URL from each input line using a
+# Python regular expression. As written, it looks for the pattern
+# 'external.html?link=<something>"' and prints just the <something> part (the
+# captured link) for every line that contains it. Lines that don't match are
+# skipped silently.
+#
+# This is meant as a starting template: edit the regex in `exre` below to match
+# whatever you need. Python's `re` module gives you more features than plain
+# command-line grep (named groups, lookarounds, etc.).
+#
+# How to run it:
+#   cat somefile.html | ./regrep
+#   some-command | ./regrep
+# It reads from standard input and writes matches to standard output.
+#
+# Prerequisites: Python 3 (re and sys are standard library).
 
+# re  : Python's regular-expression engine.
+# sys : used here only to read standard input (sys.stdin).
 import re
 import sys
 
+# Pre-compile the regex once for speed. Breaking it down:
+#   r'...'        : a raw string, so backslashes are passed to the regex as-is
+#   external      : the literal text "external"
+#   .             : any single character (here it happens to match the real ".")
+#   html\?        : the literal text "html?"  (\? = a literal question mark,
+#                   because a bare ? is a special regex character)
+#   link=         : the literal text "link="
+#   (\S+)         : capture group 1 = one or more non-whitespace characters
+#                   (\S = "not whitespace"); this is the part we want to keep
+#   "             : a literal double-quote marking the end of the link
 exre = re.compile(r'external.html\?link=(\S+)"')
+# Read standard input one line at a time.
 for line in sys.stdin:
+    # (debugging aid, left disabled: echo every input line)
     #print(line)
+    # search() looks for the pattern anywhere in the line; returns a match
+    # object if found, or None if not.
     m = exre.search(line)
+    # If we got a match, print capture group 1 (the text inside the parentheses).
     if m:
         print(m.group(1))

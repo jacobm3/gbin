@@ -1,3 +1,31 @@
-USER=$1
-TAG=$2
+# ---------------------------------------------------------------------------
+# stag  ("ssh to instance by tag")
+#
+# What it does:
+#   Looks up an EC2 instance by its "Name" tag, grabs its public IP address,
+#   and immediately opens an SSH session to it as the given user.
+#
+# How to run:
+#   ./stag <ssh-username> <name-tag-value>
+#   Example: ./stag ubuntu my-web-server
+#
+# Prerequisites:
+#   - The AWS CLI v2 installed, with working credentials/region allowing
+#     ec2:DescribeInstances.
+#   - SSH access (key + security group) to the target instance.
+#   - The tag should match exactly ONE running instance; if it matches several,
+#     ssh will receive multiple IPs and likely fail.
+# ---------------------------------------------------------------------------
+
+# Read the two command-line arguments into clearly named variables.
+USER=$1   # first argument: the username to log in as
+TAG=$2    # second argument: the value of the instance's "Name" tag
+
+# Connect with ssh, logging in as $USER (-l) to a host computed on the fly.
+# The $( ... ) is "command substitution": bash runs the inner aws command
+# first and substitutes its output (the instance's public IP) as ssh's target.
+#   --query : JMESPath expression pulling out just the PublicIpAddress field.
+#   --filter Name=tag:Name,Values=${TAG} : keep only instances whose Name tag
+#             equals the value you passed in.
+#   --output text : print the IP as plain text so ssh can use it directly.
 ssh -l $USER $(aws ec2 describe-instances --query "Reservations[*].Instances[*].PublicIpAddress"  --filter Name=tag:Name,Values=${TAG}  --output text) 

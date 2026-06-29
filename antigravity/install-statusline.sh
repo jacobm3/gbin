@@ -23,6 +23,8 @@
 # Remote mode pipes this script over ssh to each target and runs it there. Each
 # target must already have ~/gbin (the agy-statusline.py source) and python3.
 
+# -u errors on unset variables; pipefail makes a pipeline fail if any stage does.
+# (No -e, so the remote loop below can keep going and report per-host failures.)
 set -uo pipefail
 
 # Source (in the repo) and install destination for the python script.
@@ -33,6 +35,7 @@ SETTINGS="$DEST_DIR/settings.json"
 
 # --- the actual install step, run locally on whichever machine we're on ------
 install_here() {
+  # Require python3; we use it below to edit settings.json as JSON.
   command -v python3 >/dev/null 2>&1 || { echo "  ! python3 not found" >&2; return 2; }
 
   if [ ! -f "$SRC" ]; then
@@ -83,17 +86,23 @@ PY
 }
 
 # --- remote fan-out (optional) ----------------------------------------------
+# No arguments ($# = arg count) means: just configure THIS machine.
 if [ "$#" -eq 0 ]; then
   echo "==================== $(hostname) (local) ===================="
   install_here
   echo "  restart / refresh agy to pick it up"
+  # Pass through install_here's exit status ($? = status of last command).
   exit $?
 fi
 
-# Ship this script to each target and run it there.
+# Otherwise each argument is an ssh target. Pipe this whole script over ssh and
+# run it with no args there, so the remote copy takes the "local" branch above.
+# rc remembers whether any host failed, for a nonzero exit at the end.
 rc=0
 for host in "$@"; do
   echo "==================== $host ===================="
+  # BatchMode=yes = never prompt for a password; ConnectTimeout caps the wait.
+  # "bash -s" runs the script piped in via "< ${BASH_SOURCE[0]}".
   if ssh -o BatchMode=yes -o ConnectTimeout=10 "$host" \
        'bash -s' < "${BASH_SOURCE[0]}"; then
     echo "  done: $host"

@@ -1,114 +1,224 @@
+# jacobrc — personal bash startup file (aliases, functions, prompt, PATH).
+#
+# This file is SOURCED, not executed: ~/.bashrc runs `. ~/gbin/jacobrc` so every
+# line here runs inside your interactive shell. That is also why there is NO
+# shebang (#!/bin/bash) line — adding one would do nothing useful and could be
+# misleading, since the file is never run as its own program.
+#
+# HOW IT'S LOADED
+#   setup-new-machine.sh appends `. ~/gbin/jacobrc` to ~/.bashrc, so it loads
+#   automatically in every new login/interactive shell. To reload after editing,
+#   run `. ~/gbin/jacobrc` (or use the `gu` alias defined below) or open a new shell.
+#
+# LAYOUT (top to bottom)
+#   1. shell options, history, PATH, locale, TERM/color setup
+#   2. prompt colors and PS1 definition
+#   3. aliases (short names for common commands)
+#   4. shell functions (small helpers that need arguments/logic)
+#   5. completion setup and sourcing of other gbin helper scripts
+#
+# This file is synced to every machine by the hourly gbin pull, so anything here
+# should be safe and useful everywhere. Per-machine tweaks go in ~/.jacobrc.local
+# or ~/.bashrc.local, which are sourced at the very bottom.
+
+# `vers` is a version/banner string shown at the right of the prompt. It hard-codes
+# a date-style tag (v260621) plus the OS description from `lsb_release`. The pipe:
+#   lsb_release -a   -> prints distro info (2>/dev/null hides the noisy warning)
+#   grep Descrip     -> keep only the "Description:" line
+#   sed 's/...//'    -> strip the "Description:" label + leading spaces, leaving the name
 vers="v260621 `lsb_release -a 2>/dev/null | grep Descrip | sed 's/^Description:[[:space:]]*//'`"
+# extglob enables extended glob patterns (e.g. ?(...), !(...)); some functions/
+# completions below rely on it.
 shopt -s extglob
+# History settings, all exported so subshells inherit them:
+#   HISTCONTROL=ignoreboth  -> ignore duplicate commands AND ones starting with a space
+#   HISTSIZE=10000          -> keep 10k commands in memory
+#   HISTTIMEFORMAT='%F %T ' -> prefix each history entry with a date+time stamp
+#   HISTIGNORE=...          -> never record commands matching these globs, so secrets
+#                              (AWS keys, vault tokens) don't get written to history
 export HISTCONTROL=ignoreboth HISTSIZE=10000 HISTTIMEFORMAT='%F %T ' HISTIGNORE='*AWS_SECRET=:*AWS_SESSION=:*vault token*:*VAULT_TOKEN='
+# Build PATH: keep whatever PATH already had, then append the user's own bin dirs
+# (~/gbin, ~/bin, ~/.local/bin, ~/go/bin) and the standard system locations.
 export PATH=$PATH:$HOME/gbin:$HOME/bin:$HOME/.local/bin:$HOME/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/bin/X11:/usr/X/bin:/var/lib/flatpak/exports/bin
 # Scripts are organized into category subdirectories under ~/gbin; add each to
 # PATH so they remain callable as bare commands after the repo reorg.
+# Loop over every immediate subdirectory of ~/gbin (the trailing /*/ matches dirs only).
 for _d in "$HOME"/gbin/*/; do
+  # Surround PATH with colons and test whether this dir is already in it, so we
+  # don't add duplicates when the file is re-sourced. ${_d%/} strips the trailing slash.
   case ":$PATH:" in
+    # Already present -> do nothing (empty branch).
     *":${_d%/}:"*) ;;
+    # Not present -> append it.
     *) PATH="$PATH:${_d%/}" ;;
   esac
 done
+# Clean up the loop variable so it doesn't linger in the shell environment.
 unset _d
+# Find a Homebrew install in any of the usual locations and, if the `brew` binary
+# is executable (-x), load its environment (adds brew's bin to PATH, sets vars).
+# `break` stops at the first one found so we don't run shellenv twice.
 for b in /home/linuxbrew/.linuxbrew/bin/brew /opt/homebrew/bin/brew /usr/local/bin/brew; do [ -x "$b" ] && eval "$("$b" shellenv)" && break; done
 # Pick a UTF-8 locale that actually exists. en_US.UTF-8 isn't generated on minimal
 # boxes/containers, so LANG silently falls back to C and UTF-8 output (e.g. the box
 # chars in `sch`) renders as <E2><94><80>. C.UTF-8 needs no generated locale, so use
 # it as the portable fallback. Set LC_CTYPE too so character handling sticks.
+# `locale -a` lists installed locales; if en_US.UTF-8 is one of them, prefer it.
+# grep flags: -q quiet, -i case-insensitive, -E extended regex. The regex allows
+# "utf8" or "utf-8" spellings.
 if locale -a 2>/dev/null | grep -qiE '^en_US\.(utf-?8)$'; then
   export LANG=en_US.UTF-8
 else
+  # Fallback that needs no generated locale data — always available.
   export LANG=C.UTF-8
 fi
+# Make character-type handling (upper/lower, what counts as printable) match LANG.
 export LC_CTYPE=$LANG
 # Force a capable TERM only OUTSIDE a multiplexer. tmux/screen export their own
 # TERM (tmux-256color / screen-256color) which TUIs must see to render cleanly;
 # clobbering it back to xterm-256color causes escape-sequence garbage.
+# -z tests for an empty string. $TMUX is set inside tmux, $STY inside GNU screen.
+# So this only forces TERM when we're NOT inside a multiplexer (see note above).
 if [ -z "$TMUX" ] && [ -z "$STY" ]; then export TERM=xterm-256color; fi
 # Advertise 24-bit truecolor (XFCE Terminal / VTE supports it; tmux passes through)
 export COLORTERM=truecolor
 
+# Prompt color codes. Each is an ANSI escape wrapped in \[ ... \] so bash knows the
+# bytes are non-printing (otherwise it miscounts line length and corrupts editing).
+# 01;3x = bold + a color; 38;5;NNN = 256-color palette index; O resets to default.
 GRN='\[\033[01;32m\]' R='\[\033[01;31m\]' CYAN='\[\033[01;36m\]' WHT='\[\033[01;37m\]' BLUE='\[\033[01;34m\]' MAG='\[\033[01;35m\]' GRAY='\[\033[38;5;246m\]' VGRAY='\[\033[38;5;240m\]' O='\[\033[00m\]'
 
+# Default timezone for date/time display.
 export TZ="America/Chicago"
+# Build the prompt (PS1). Bash expands these backslash codes each time it's shown:
+#   \u user, \h short hostname, \w current dir, \D{%F} date, \t time.
+# The color variables above wrap each piece; ${vers} adds the version banner.
+# The \n puts the actual "$ " input area on its own second line.
+# LTZ=DST is just an unrelated exported var set on the same line.
 export LTZ=DST PS1="${MAG}\u${O}@${CYAN}\h${O}:\w         ${GRAY}\D{%F} \t   ${VGRAY}${vers}${O}\n$ ${O}"
 #export PS1='\[\e]0;\u@\h: \w\a\]\[\e[1;35m\]\u\[\e[0m\]@\[\e[1;36m\]\H\[\e[0m\]:\[\e[1;32m\]\w\[\e[0m\]\n\[\e[1;32m\]$\[\e[0m\] '
 
 
+# For root, use a red username and a `#` prompt char as a visual "danger" cue.
 if [ "$USER" == 'root' ]; then export PS1="$R\u$O@\h:\w         \D{%F} \t\n# "; fi
 
+# PROMPT_COMMAND runs before each prompt is drawn. This escape sets the cursor to
+# a blinking block (\033[5 q), keeping it consistent across programs that change it.
 PROMPT_COMMAND='printf "\033[5 q"'
 
 #bind '"\C-i":complete'  # if tab complete doesn't work
+# Use vi-style command-line editing (hjkl, Esc for normal mode) at the bash prompt.
 set -o vi
+# Test once whether `ls` supports --color (GNU coreutils does; some BSD/macOS don't),
+# discarding all output with &>/dev/null. The `if [ 0 -eq 0 ]` is always true, so
+# these colorized ls aliases are always defined; the test line above is effectively
+# a leftover probe. lh/lha/lhtr are common "list long, human-readable" variants.
 ls --color=auto &>/dev/null; if [ 0 -eq 0 ]; then alias ls='ls --color=auto' lh='ls -lh' lha='ls -lha' lhtr='ls -lhtr'; fi;
 # LESS flags: -S chop long lines, -R raw color, -F quit if it fits one screen.
 # Dropped -X (was '-SRFX'): -X disables less's alternate screen, which left the
 # terminal in application-cursor-key mode on exit -> trackpad scroll turned into
 # bash history up/down. Without -X, less restores the screen cleanly on quit.
+# EDITOR/PAGER: default programs many tools invoke. LESS sets default `less` flags.
 export EDITOR=vim PAGER=less LESS='-SRF'
+# Where kubectl looks for its cluster config; this path is k3s's default.
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 
+# ============================================================================
+# ALIASES — short names that expand to longer commands. Defined alphabetically-ish.
+# An alias only substitutes the FIRST word of a command line.
+# ============================================================================
+
+# Quick "go up N directories" shortcuts.
 alias ..='cd ..'
 alias ...='cd ../..'
 alias ....='cd ../../..'
+# `cd -` jumps back to the previous directory. The `--` lets us alias the literal "-".
 alias -- -='cd -'
+# Print just field 1 / field 2 / fields 1+2 of piped input. \$ escapes $ so awk (not
+# bash) expands it. Handy in pipelines: `... | a1`.
 alias a1="awk '{print \$1}'" a2="awk '{print \$2}'" a12="awk '{print \$1,\$2}'"
 alias a='alias'
+# apt package-cache shortcuts.
 alias ac='apt-cache'
 alias acs='apt-cache search'
+# Sum a column of numbers: paste joins lines with + then bc evaluates the expression.
 alias add='paste -s -d+ - | bc'
+# apt-get family (all need root, hence sudo).
 alias ag='sudo apt-get'
 alias agud='sudo apt-get update'
+# Update package lists then do a full dist-upgrade in one go.
 alias agug='sudo apt-get update && sudo apt-get dist-upgrade'
 alias agy='agy --dangerously-skip-permissions'
+# Ansible shortcuts.
 alias an='ansible'
 alias ap='ansible-playbook'
 alias apt='sudo apt'
+# arc_summary: ZFS ARC cache stats.
 alias as=arc_summary
+# Astronomer (astro) CLI dev environment; asdr restarts it.
 alias asd='astro dev'
 alias asdr='astro dev stop && astro dev start'
+# Show AWS_* env vars, truncated to 45 chars with "..." so secrets aren't fully revealed.
 alias aws-creds='env | g ^AWS_ | cut -c 1-45 | sed "s/$/.../"'
 alias b2=backblaze-b2
+# base64 without line wrapping (-w0); bd decodes.
 alias base64='base64 -w0'
 alias bd='base64 -d'
 alias bp='bindplane'
+# Force btop to use UTF-8 box-drawing chars even when locale detection fails.
 alias btop='btop --utf-force'
 alias c='cat'
 alias cdi='cd /etc/init.d'
+# Launch Claude Code skipping permission prompts.
 alias cl='claude --dangerously-skip-permissions'
+# Wipe AWS credential env vars from the current shell.
 alias clear-aws='unset AWS_DEFAULT_REGION AWS_SECRET_ACCESS_KEY AWS_ACCESS_KEY_ID'
 alias cls='clear'
 alias co='codex --dangerously-bypass-approvals-and-sandbox'
+# Strip blank lines and comment lines from piped text (good for trimming config files).
 alias condense="grep -v '^\s*$' | grep -v '^#'"
+# Quick CPU summary: model name, core count, and clock speed.
 alias cpuinfo='egrep "model name|cores" /proc/cpuinfo|head -2; grep MHz /proc/cpuinfo | head -1'
 alias cx='chmod +x'
+# Docker shortcuts.
 alias d='docker' 
 alias dc='docker-compose' dcr='docker-compose restart'
+# Disk free, human-readable, with filesystem type column.
 alias dfh='df -hT'
+# dt = exec interactive shell in a container; ds = live container stats.
 alias dt='docker exec -it' ds='docker stats'
 
+# dkrmall: nuke ALL local docker state — remove every container, volume, and unused
+# network. Destructive; intended for resetting a dev box. Each `echo` just narrates.
 alias dkrmall="echo; echo Removing any containers.
                docker ps -a | grep -v CONTAINER | awk '{print \$1}' | xargs docker rm -f 2>/dev/null; 
                echo Removing any volumes.
                docker volume ls | grep -v DRIVER | awk '{print \$2}' | xargs docker volume rm 2>/dev/null; 
                echo Pruning any networks.
                docker network prune -f; echo"
+# Disk usage of a path: -sh human-readable total, -sk in kilobytes.
 alias dsh='du -sh'
 alias dsk='du -sk'
+# dn: disk usage (KB) of the given path, then sort numerically. $1 is the argument.
 dn () { du -sk "$1" | sort -n; }
 
+# ISO-8601 timestamp with colons (good for display).
 alias d8601='date +%Y-%m-%dT%H:%M:%S%z'
+# Same idea without colons (filename-safe). NOTE: plain var assignment, not an alias,
+# so use it as `$ds` / `$($ds)`, not as a command.
 ds='date +%Y-%m-%dT%H%M%S%z'
 
 
+# Colorize egrep output by default.
 alias egrep='egrep --color=auto'
+# em: turn a comma-separated list on stdin into one-per-line and append a signature.
 alias em="sed 's/,/\n/g' | sed 's/^ //'; echo 'Jacob Martinson <jacob.martinson@astronomer.io>'"
 alias f='fg'
 alias fgrep='fgrep --color=auto'
 alias fp='flatpak'
+# g: the everyday "grep case-insensitive" used all over this file (e.g. in pipelines).
 alias g='egrep -i'
+# --- git shortcuts ---
 alias ga='git add'
 alias gc='git commit'
 alias gl='git clone'
@@ -116,41 +226,54 @@ alias gd='git diff'
 alias gp='git pull'
 alias gpull='git pull'
 alias gpush='git push'
+# Hard reset (discards local changes) — grhh resets to HEAD specifically.
 alias grh='git reset --hard'
 alias grhh='git reset --hard HEAD'
 alias gs='git status'
+# gu: "gbin update" — pull the latest gbin, return to the prior dir, and re-source
+# this file so new aliases/functions take effect immediately.
 alias gu='cd ~/gbin && git pull && cd - && . ~/gbin/jacobrc'
 alias h='history'
+# Search shell history (history piped to grep).
 alias hg='history | egrep '
 alias ht='htop'
+# ifu: quick network summary — interface addresses plus the routing table.
 alias ifu='ifconfig | egrep "Link|MTU|inet"; netstat -rn'
 alias ins=instruqt
 alias j='jobs'
 alias jc=journalctl
+# jl: pretty-print colorized JSON through a pager; jq forces color output.
 alias jl='jq -C | less'
 alias jq='jq -C'
 alias js='jetski'
 alias k='kubectl'
+# --- ls / listing variants (l=list, h=human, t=by time, r=reverse, a=all) ---
 alias l='ls'
 alias la='ls -A'
 alias ld='ls -ld'
+# less with line Numbers; the `less` alias forces raw color passthrough (-R).
 alias les='less -N'
 alias less='less -R'
 alias lh='ls -lh'
 alias lha='ls -lha'
 alias lhtr='ls -lhtr'
+# Long list by time, newest at bottom, show only the last few (tail).
 alias lhtrt='ls -lhtr | tail '
 alias ll='ls -alF'
 alias ls='ls --color=auto'
 alias lsa='ls -a'
 alias ltr='ls -ltr'
 alias ltt='ls -ltr | tail'
+# man with a fixed 100-column width for readable line wrapping.
 alias m='COLUMNS=100 man'
 alias md='mkdir'
+# nala is a friendlier apt frontend; run it as root.
 alias n='sudo nala'
 alias nv='nvim'
+# Ping shortcuts; p1 pings Cloudflare's 1.1.1.1 as a quick "is the internet up" test.
 alias p=ping
 alias p1='ping 1.1.1.1'
+# pug: search the process list (ps aux) case-insensitively for an argument.
 alias pug='ps aux | egrep -i '
 alias py='python3'
 alias py3='python3'
@@ -158,38 +281,57 @@ alias rs='rm-special-chars.sh'
 alias s='ssh'
 #alias sc='systemctl '
 #alias sclist='systemctl list-units --type=service'
+# sd: drop into a root bash shell.
 alias sd='sudo bash'
 alias sl3='sqlite3'
 alias sn='sort -n'
 alias t='tail'
 alias tlf='tail -f'
+# --- terraform shortcuts; `time` prefixes them to report how long each run took ---
 alias tf='time terraform'
+# Apply and also save output to a log file via `tee`. tfaa/tfdaa auto-approve
+# (no prompt); tfdaa applies a DESTROY plan — it tears down infrastructure.
 alias tfa='time terraform apply | tee .apply.out'
 alias tfaa='time terraform apply -auto-approve | tee .apply.out'
 alias tfdaa='time terraform apply -destroy -auto-approve | tee apply.out'
 alias tfp='time terraform plan'
+# tfs: show a saved plan and grep out the interesting resource/region/name lines.
 alias tfs='terraform show .tf.plan.out | egrep -i " resource|region|zone |name|plan:"'
 alias tm=tmsu
 # `ts` is a colorized tailscale wrapper, defined in linux/tailscale/tailscale-functions.sh (sourced below)
+# `v` = best available vim-like editor: prefer nvim, then vim, then plain vi.
+# `command -v X` succeeds if X is on PATH.
 if command -v nvim &>/dev/null; then alias v='nvim'; elif command -v vim &>/dev/null; then alias v='vim'; else alias v='vi'; fi
+# Create a new python virtual environment (pass the target dir as an argument).
 alias venv='python3 -m venv '
 alias y='yara'
+# va: activate a python venv living in the given directory (e.g. `va myenv`).
 va () { . $1/bin/activate; }
 
 
+# vault CLI shortcut; vtl looks up the current token, hiding the id line.
 alias vl='vault ' vtl='echo "vault token lookup"; vault token lookup | grep -v "^id" '
 alias wh='which'
 alias x='chmod +x'
+# Open a file/URL with the desktop's default app.
 alias xo='xdg-open'
+# yt-dlp video downloader.
 alias yt='yt-dlp'
+# zkeys: show ZFS encryption key status for both filesystems and volumes.
 alias zkeys='zfs get keystatus  -t filesystem; echo; zfs get keystatus  -t volume'
 alias zles='zless'
 # use zstdless for zless if it's installed (handles .zst as well as .gz)
 command -v zstdless >/dev/null 2>&1 && alias zless='zstdless'
 alias zsomething='asdf'
 
+# ============================================================================
+# FUNCTIONS — used instead of aliases when arguments or multi-step logic is needed.
+# ============================================================================
+
+# gpc: git commit ALL tracked changes with the message in $1, then push.
 gpc () { git commit -am "$1"; git push; }
 
+# mcd: make a directory (and parents, -p) then cd into it.
 mcd () { mkdir -p $1; cd $1; }
 
 # print details of local certificate in a file
@@ -203,12 +345,16 @@ rcertport () { openssl s_client -showcerts -connect $1 <<< ''; }
 
 # print just column N, passed in as the 1st and only argument
 # similar to awk "{print $1}" but easier to type
+# tr -s ' ' squeezes runs of spaces into one, then cut grabs field $1.
 pc () { tr -s ' ' | cut -d ' ' -f $1; }
 
 # convert gigabytes to bytes
 gb2b () {
+    # $1 is the number of gigabytes passed in.
     local gb=$1
+    # bc does the multiply (it handles decimals; bash arithmetic can't).
     local bytes=$(echo "$gb * 1024 * 1024 * 1024" | bc)
+    # ${bytes%.*} strips any ".000" fractional part, leaving a whole-byte count.
     echo ${bytes%.*}
 }
 
@@ -218,7 +364,9 @@ logsess() {
   # If a description is provided, it's prepended in the filename
   # followed by an ISO-like timestamp.
   
+  # First argument is the optional description label for the log filename.
   local PURPOSE="$1"
+  # Build a filename-safe timestamp (no colons).
   local TIMESTAMP
   TIMESTAMP=$(date +"%Y-%m-%dT%H%M%S")
 
@@ -231,21 +379,34 @@ logsess() {
   local FILENAME="${PURPOSE}_${TIMESTAMP}.log"
 
   # Start the session
+  # `script` records everything printed in the shell to FILENAME until you exit.
   script "$FILENAME"
 }
 
 
 
+# ============================================================================
+# COMPLETION & EXTERNAL SOURCING — tab-completion wiring and other gbin helpers.
+# ============================================================================
+
+# `complete -C PROG NAME` tells bash to ask PROG itself for completions of NAME.
+# This wires tab-completion through to the corresponding tool's own completer.
 complete -C kubectl kc
 complete -C docker d
 complete -C terraform tf
 complete -C vault vault
+# Color scheme for `jq` output (field:object:etc. as semicolon-separated ANSI codes).
 export JQ_COLORS='0;37:0;39:0;39:0;37:0;37:1;37:1;37'
 
+# Terraform logging defaults: write debug logs to .tf.log.debug, always save plans
+# to .tf.plan.out, and set log level to debug. (Used together with the tf* aliases.)
 export TF_LOG_PATH=.tf.log.debug TF_CLI_ARGS_plan="-out .tf.plan.out" TF_LOG=debug
 
+# If kubectl exists, load its bash completion and also apply it to the `k` alias.
+# `source <(...)` runs the completion script that kubectl prints to stdout.
 which kubectl >/dev/null && source <(kubectl completion bash) && complete -o default -F __start_kubectl k
 
+# Load ZFS command completion if the system provides it.
 if [ -e /usr/share/bash-completion/completions/zfs ]; then . /usr/share/bash-completion/completions/zfs; fi
 
 # activate default python venv if present
@@ -261,6 +422,8 @@ if [ -e /usr/share/bash-completion/completions/zfs ]; then . /usr/share/bash-com
 
 # load the bash-completion library; complete_alias relies on its
 # _command_offset and _completion_loader functions for the actual completion
+# `declare -F NAME` checks whether a shell function is defined; if the helper
+# isn't loaded yet, source the system bash-completion library (from either path).
 if ! declare -F _command_offset >/dev/null 2>&1; then
     if [ -r /usr/share/bash-completion/bash_completion ]; then
         . /usr/share/bash-completion/bash_completion
@@ -270,10 +433,14 @@ if ! declare -F _command_offset >/dev/null 2>&1; then
 fi
 
 # enable completion on aliases
+# (so tab-completion works through the short aliases defined above, e.g. `g` -> git).
 . ~/gbin/shell/complete_alias
 
 # systemd helper functions
 . ~/gbin/linux/systemd-functions.sh
 
+# Finally, source machine-specific overrides if present. These are NOT synced by
+# gbin, so they're the place for per-host secrets, paths, or tweaks. Sourced last
+# so they can override anything set above.
 if [ -e ~/.bashrc.local ]; then . ~/.bashrc.local; fi
 if [ -e ~/.jacobrc.local ]; then . ~/.jacobrc.local; fi

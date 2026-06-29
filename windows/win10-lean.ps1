@@ -1,16 +1,56 @@
 
+# ============================================================================
+# win10-lean.ps1 — strip Windows 10 down to a lean, fast workstation
+# ============================================================================
+#
+# WHAT THIS DOES (original "v1"; see win10-lean-v2.ps1 for the newer version)
+#   A semi-manual recipe to debloat and set up a fresh Windows 10 box. It:
+#     1. Loosens system settings for speed (disables Defender real-time/behavior
+#        monitoring, last-access timestamps, hibernation; AV folder exclusions;
+#        disables background apps; allows local scripts to run).
+#     2. Runs the Sycnex "Windows10Debloater" telemetry/bloat remover via a
+#        piped one-liner (`iwr ... | iex`).
+#     3. Disables a few optional services, removes bundled Microsoft apps with
+#        winget, and installs the user's preferred apps.
+#
+# WARNING: this REDUCES SECURITY (disables Microsoft Defender real-time and
+#   behavior monitoring). Only use where that tradeoff is acceptable.
+#
+# HOW TO RUN
+#   Intended to be run in stages, not blindly top to bottom:
+#     - Paste the "paste block" below into an *Administrator* PowerShell.
+#     - Apply Windows Updates.
+#     - Then run the rest. The top part is safe to rerun.
+#
+# PREREQUISITES: Windows 10, Administrator rights, internet access, winget.
+# ============================================================================
+
 # Paste this section into an admin powershell terminal
 # Begin paste block
+# Turn OFF Defender real-time (on-access) virus scanning. Faster disk I/O, but
+# much weaker malware protection — a deliberate tradeoff for this machine.
 Set-MpPreference -DisableRealtimeMonitoring $true
+# Turn OFF Defender behavior monitoring (the heuristic malware-behavior engine).
 Set-MpPreference -DisableBehaviorMonitoring $true
+# Stop NTFS updating each file's last-accessed timestamp on every read (cuts
+# disk writes). "1" = the feature is disabled.
 fsutil behavior set disablelastaccess 1
+# Disable hibernation and delete the multi-GB C:\hiberfil.sys file.
 powercfg.exe /hibernate off
+# Exclude these program/build folders and the winget cache from Defender
+# scanning so installs and builds run faster.
 Add-MpPreference -ExclusionPath "C:\Windows","C:\Program Files","C:\Program Files (x86)","D:\Program Files","D:\Program Files (x86)","%TEMP%\WinGet"
 
 # disable background apps
+# Registry write: GlobalUserDisabled=1 is the master switch that stops UWP/Store
+# apps running in the background (saves CPU/RAM/battery).
+#   /v=value name  /t=REG_DWORD (32-bit number)  /d=data  /f=force, no prompt.
 Reg Add HKCU\Software\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications /v GlobalUserDisabled /t REG_DWORD /d 1 /f
 
 # enable unsigned powershell scripts
+# Set the script-execution policy to "RemoteSigned": local scripts run freely,
+# internet-downloaded scripts must be signed. -Force skips the prompt.
+# (Line duplicated below; rerunning it is harmless.)
 Set-ExecutionPolicy RemoteSigned -Scope LocalMachine -Force
 Set-ExecutionPolicy RemoteSigned -Scope LocalMachine -Force
 
@@ -23,9 +63,16 @@ Set-ExecutionPolicy RemoteSigned -Scope LocalMachine -Force
 # Once that completes, run https://github.com/Sycnex/Windows10Debloater/blob/master/Windows10DebloaterGUI.ps1 to disable telemetry
 # and perform other debloat techniques
 # or:
+# Download and immediately run the Sycnex debloater in one go:
+#   iwr = Invoke-WebRequest, "-useb" = -UseBasicParsing (fetch raw text), and
+#   "| iex" pipes that text into Invoke-Expression, which runs it as a script.
+#   (Convenient but risky: it executes whatever that URL currently serves.)
 iwr -useb https://git.io/debloat|iex
 
 # Not needed by most individual end users
+# Disable these services from starting at boot (unneeded on a single-user PC):
+#   MapsBroker=Offline Maps, SharedAccess=Internet Connection Sharing,
+#   LanmanServer=SMB file sharing host, edgeupdate/edgeupdatem=Edge auto-updaters.
 Set-Service -Name MapsBroker -StartupType Disabled
 Set-Service -Name SharedAccess -StartupType Disabled
 Set-Service -Name LanmanServer -StartupType Disabled
@@ -34,6 +81,9 @@ Set-Service -Name edgeupdatem -StartupType Disabled
 
 
 # UNINSTALLS
+# Remove Microsoft's bundled/built-in apps with winget (the Windows Package
+# Manager). "winget uninstall <name>" matches the package by name and removes
+# it. This whole block strips out default Windows "bloat".
 winget uninstall "3D Viewer"
 winget uninstall "Cortana"
 winget uninstall "Disney+"
@@ -71,6 +121,10 @@ winget uninstall "Your Phone"
 
 
 # INSTALLS
+# Install the user's preferred apps via winget. Flag reminders:
+#   -i / --interactive : show the app's own installer GUI
+#   --exact            : match the package id EXACTLY (no fuzzy matching)
+#   --silent           : install with no prompts/UI
 winget install -i "Microsoft.VisualStudioCode"
 winget install --exact "Bitwarden.Bitwarden"
 winget install --exact "mcmilk.7zip-zstd"
@@ -95,11 +149,12 @@ winget install --exact "Zoom.Zoom"
 winget install --exact "MiniTool.PartitionWizard.Free"
 winget install "Microsoft.WindowsTerminal"
 
+# --- manual follow-up reminders (TODO notes, not executable code) -----------
 # configure greenshot settings
-# https://pathcopycopy.github.io/
-# https://geeks3d.com/furmark/downloads/
+# https://pathcopycopy.github.io/       (extra app to consider installing)
+# https://geeks3d.com/furmark/downloads/ (GPU stress-test tool to consider)
 # disable background tasks
 
-# scheduled task to start altsnap w/admin privs
-# scheduled task to run c:\bin\cf-dns.ps1
-# make a system restore point
+# scheduled task to start altsnap w/admin privs  (window-snapping helper at login)
+# scheduled task to run c:\bin\cf-dns.ps1         (lock DNS to Cloudflare at login)
+# make a system restore point                     (snapshot before all this surgery)

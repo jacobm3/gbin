@@ -1,9 +1,33 @@
 #!/bin/bash
+#
+# reattach-keyboard — systemd sleep hook that revives the keyboard/touchpad
+# after the Dell Latitude 7410 resumes from suspend.
+#
+# This script is NOT run by hand. systemd executes every file in
+# /lib/systemd/system-sleep/ around suspend/resume, passing TWO arguments:
+#   $1 = "pre"  just BEFORE going to sleep
+#        "post" just AFTER waking up
+#   $2 = the sleep type (e.g. "suspend")
+# We only care about "post" (resume), where we reload the USB input modules so
+# the keyboard and trackpad come back. Install it with
+# 7410-fix-keyboard-after-resume.sh.
+
+# Branch on the phase systemd handed us in $1.
 case "$1" in
+  # Only act on resume ("post"). The "pre" (suspend) phase falls through and
+  # does nothing.
   post)
+    # Unload the USB HID input modules. -r means "remove". We list the
+    # higher-level modules first (hid_multitouch, hid_generic) and the core
+    # usbhid last, because they depend on usbhid and must unload before it.
     modprobe -r hid_multitouch hid_generic usbhid
+    # Give the hardware a moment to settle before re-probing.
     sleep 1
+    # Load the modules back in dependency order (core usbhid first), which
+    # forces the kernel to re-enumerate the input devices.
     modprobe usbhid hid_generic hid_multitouch
+    # Restart the LightDM display manager so the desktop session re-grabs the
+    # freshly re-attached input devices.
     systemctl restart lightdm
   ;;
 esac
