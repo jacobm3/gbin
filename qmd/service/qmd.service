@@ -1,0 +1,14 @@
+[Unit]
+Description=qmd MCP HTTP server (shared Claude Code memory)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/qmd mcp --http --port 8181
+Restart=on-failure
+RestartSec=5
+Environment=HOME=/root
+
+[Install]
+WantedBy=multi-user.target
