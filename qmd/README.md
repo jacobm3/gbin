@@ -10,7 +10,7 @@ The memory content itself lives in a separate repo: **`jacobm3/qmd-corpus`**.
 | Script  | What it does                                                              |
 |---------|---------------------------------------------------------------------------|
 | `setup` | Registers the `qmd` MCP server in Claude Code (user scope). Run once per machine. Idempotent. |
-| `save`  | Writes a markdown file to the corpus, commits, and pushes. Reindexed within ~5 min. |
+| `save`  | Writes a markdown file to the corpus, commits, and pushes. Reindexed within ~1 min. |
 
 ## Connect a new machine
 
