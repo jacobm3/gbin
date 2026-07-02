@@ -41,5 +41,5 @@ To SAVE memory, use the companion script:
   ...markdown body...
   MD
 
-Searchable within ~5 min of saving (qmd-sync.timer on the qmd host).
+Searchable within ~1 min of saving (qmd-sync.timer on the qmd host).
 EOF

@@ -80,4 +80,4 @@ git commit -q -m "memory: $REL"
 if ! git push -q 2>/dev/null; then
   git pull -q --rebase && git push -q
 fi
-echo "Saved $REL -> corpus. Searchable within ~5 min."
+echo "Saved $REL -> corpus. Searchable within ~1 min."
