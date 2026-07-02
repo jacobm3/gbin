@@ -439,6 +439,9 @@ fi
 # systemd helper functions
 . ~/gbin/linux/systemd-functions.sh
 
+# homelab vault
+export VAULT_ADDR='vault.mink-neon.ts.net'
+
 # Finally, source machine-specific overrides if present. These are NOT synced by
 # gbin, so they're the place for per-host secrets, paths, or tweaks. Sourced last
 # so they can override anything set above.
