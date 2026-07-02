@@ -275,5 +275,9 @@ fi
 # systemd helper functions
 . ~/gbin/linux/systemd-functions.sh
 
+# homelab vault
+export VAULT_ADDR="vault.mink-neon.ts.net"
+
+
 if [ -e ~/.bashrc.local ]; then . ~/.bashrc.local; fi
 if [ -e ~/.jacobrc.local ]; then . ~/.jacobrc.local; fi
